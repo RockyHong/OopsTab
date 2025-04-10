@@ -20,13 +20,14 @@ let supportsTabGroups = false;
 // Initialize browser detection
 const detectBrowser = async () => {
   try {
-    // Check if we're in Firefox by using Firefox-specific API
-    const browserInfo = await api.runtime.getBrowserInfo().catch(() => null);
-    isFirefox = Boolean(browserInfo && browserInfo.name === "Firefox");
+    // Use user agent and feature detection instead of Firefox-specific API
+    const userAgent = navigator.userAgent.toLowerCase();
 
-    // If not Firefox, Chrome is a reasonable assumption for now
-    // This can be expanded later for Edge, Safari, etc.
-    isChrome = !isFirefox;
+    // Detect Firefox
+    isFirefox = userAgent.includes("firefox");
+
+    // Detect Chrome (includes Chrome, Edge, Opera, etc. that use Chromium)
+    isChrome = userAgent.includes("chrome") || userAgent.includes("chromium");
 
     // Feature detection
     supportsTabGroups = typeof api.tabGroups !== "undefined";

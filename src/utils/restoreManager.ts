@@ -62,8 +62,24 @@ export const createWindowFromSnapshot = async (
 
     // Create a new window with the first tab
     const firstTab = sortedTabs[0];
+
+    // Include hostname in URL fragment to preserve info when discarded
+    let firstTabUrl = firstTab.url;
+    try {
+      if (!firstTab.url.includes("#oopstab=")) {
+        const urlObj = new URL(firstTab.url);
+        const displayName = firstTab.title || urlObj.hostname;
+        // Add a special fragment that the browser will show when tab is discarded
+        firstTabUrl = `${firstTab.url}#oopstab=${encodeURIComponent(
+          displayName
+        )}`;
+      }
+    } catch (err) {
+      console.warn(`Could not enhance URL for ${firstTab.url}:`, err);
+    }
+
     const createdWindow = await browser.windows.create({
-      url: firstTab.url,
+      url: firstTabUrl,
       focused: true,
     });
 
@@ -88,9 +104,23 @@ export const createWindowFromSnapshot = async (
     // Create the rest of the tabs without loading content immediately
     for (let i = 1; i < sortedTabs.length; i++) {
       const tab = sortedTabs[i];
+
+      // Include hostname in URL fragment to preserve info when discarded
+      let enhancedUrl = tab.url;
+      try {
+        if (!tab.url.includes("#oopstab=")) {
+          const urlObj = new URL(tab.url);
+          const displayName = tab.title || urlObj.hostname;
+          // Add a special fragment that the browser will show when tab is discarded
+          enhancedUrl = `${tab.url}#oopstab=${encodeURIComponent(displayName)}`;
+        }
+      } catch (err) {
+        console.warn(`Could not enhance URL for ${tab.url}:`, err);
+      }
+
       const newTab = await browser.tabs.create({
         windowId: newWindowId,
-        url: tab.url,
+        url: enhancedUrl,
         pinned: tab.pinned,
         index: tab.index,
         active: false,
