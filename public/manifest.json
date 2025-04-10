@@ -4,7 +4,6 @@
   "version": "1.0.0",
   "description": "A tab snapshot manager to preserve your browser sessions",
   "action": {
-    "default_popup": "index.html",
     "default_icon": {
       "16": "icons/icon16.png",
       "32": "icons/icon32.png",
@@ -15,7 +14,8 @@
   "permissions": [
     "tabs",
     "storage",
-    "sessions"
+    "sessions",
+    "tabGroups"
   ],
   "background": {
     "service_worker": "background.js"

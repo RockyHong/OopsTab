@@ -1,12 +1,8 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
-import Popup from "./Popup";
-import "../styles/tailwind.css";
+import OopsTab from "./OopsTab";
+import "../../styles/tailwind.css";
 
 const container = document.getElementById("root");
 const root = createRoot(container!);
-root.render(
-  <React.StrictMode>
-    <Popup />
-  </React.StrictMode>
-);
+root.render(<OopsTab />);

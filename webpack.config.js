@@ -24,7 +24,7 @@ if (iconsExist) {
 
 module.exports = {
   entry: {
-    popup: './src/popup/index.tsx',
+    oopstab: './src/pages/oopstab/index.tsx',
     options: './src/options/index.tsx',
     background: './src/background/index.ts',
     content: './src/content/index.ts',
@@ -53,9 +53,9 @@ module.exports = {
   },
   plugins: [
     new HtmlWebpackPlugin({
-      template: './public/index.html',
-      filename: 'index.html',
-      chunks: ['popup'],
+      template: './src/pages/oopstab/index.html',
+      filename: 'oopstab.html',
+      chunks: ['oopstab'],
     }),
     new HtmlWebpackPlugin({
       template: './public/options.html',
