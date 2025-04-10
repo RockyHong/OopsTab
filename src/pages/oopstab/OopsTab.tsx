@@ -213,6 +213,25 @@ const SnapshotsPanel: React.FC = () => {
                           }`
                         : "No tabs";
 
+                    // Get favicon for display if available (use first tab's favicon)
+                    const firstTabWithFavicon = snapshot.tabs.find(
+                      (tab) => tab.faviconUrl
+                    );
+                    const icon = firstTabWithFavicon?.faviconUrl ? (
+                      <img
+                        src={firstTabWithFavicon.faviconUrl}
+                        className="h-5 w-5"
+                        alt="Tab favicon"
+                        onError={(e) => {
+                          // Fallback if favicon fails to load
+                          e.currentTarget.src = "";
+                          e.currentTarget.style.display = "none";
+                        }}
+                      />
+                    ) : (
+                      <DocumentDuplicateIcon className="h-5 w-5" />
+                    );
+
                     return (
                       <ListItem
                         key={snapshot.timestamp}
@@ -221,7 +240,7 @@ const SnapshotsPanel: React.FC = () => {
                         }`}
                         subtitle={subtitle}
                         metadata={formatDate(snapshot.timestamp)}
-                        icon={<DocumentDuplicateIcon className="h-5 w-5" />}
+                        icon={icon}
                         actions={
                           <div className="flex space-x-1">
                             <IconButton

@@ -18,6 +18,7 @@ export interface TabData {
   pinned: boolean;
   groupId: number;
   index: number;
+  faviconUrl?: string;
 }
 
 // Define proper type for tab group color
@@ -135,6 +136,7 @@ export const createWindowSnapshot = async (
       pinned: tab.pinned || false,
       groupId: tab.groupId || -1, // -1 is the standard TAB_GROUP_ID_NONE
       index: tab.index,
+      faviconUrl: tab.favIconUrl || "",
     }));
 
     // Filter out invalid tabs (missing URLs)

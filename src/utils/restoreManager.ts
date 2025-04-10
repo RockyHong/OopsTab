@@ -23,6 +23,38 @@ export const findOpenWindow = async (
 };
 
 /**
+ * Extract information from an oopstab URL fragment
+ * @param url The URL with potential oopstab fragment
+ * @returns Object containing the extracted displayName and faviconUrl if available
+ */
+const extractInfoFromFragment = (
+  url: string
+): { displayName?: string; faviconUrl?: string } => {
+  try {
+    if (url.includes("#oopstab=")) {
+      const fragmentParts = url.split("#oopstab=")[1].split("&");
+      const displayName = fragmentParts[0]
+        ? decodeURIComponent(fragmentParts[0])
+        : undefined;
+
+      // Extract favicon URL if available
+      let faviconUrl;
+      const faviconParam = fragmentParts.find((part) =>
+        part.startsWith("favicon=")
+      );
+      if (faviconParam) {
+        faviconUrl = decodeURIComponent(faviconParam.split("favicon=")[1]);
+      }
+
+      return { displayName, faviconUrl };
+    }
+  } catch (err) {
+    console.warn("Failed to extract oopstab information from URL:", err);
+  }
+  return {};
+};
+
+/**
  * Focus an existing window
  * @param windowId The window ID to focus
  * @returns Promise resolving to true if successful
@@ -70,9 +102,13 @@ export const createWindowFromSnapshot = async (
         const urlObj = new URL(firstTab.url);
         const displayName = firstTab.title || urlObj.hostname;
         // Add a special fragment that the browser will show when tab is discarded
+        // Include favicon if available
+        const faviconInfo = firstTab.faviconUrl
+          ? `&favicon=${encodeURIComponent(firstTab.faviconUrl)}`
+          : "";
         firstTabUrl = `${firstTab.url}#oopstab=${encodeURIComponent(
           displayName
-        )}`;
+        )}${faviconInfo}`;
       }
     } catch (err) {
       console.warn(`Could not enhance URL for ${firstTab.url}:`, err);
@@ -112,7 +148,13 @@ export const createWindowFromSnapshot = async (
           const urlObj = new URL(tab.url);
           const displayName = tab.title || urlObj.hostname;
           // Add a special fragment that the browser will show when tab is discarded
-          enhancedUrl = `${tab.url}#oopstab=${encodeURIComponent(displayName)}`;
+          // Include favicon if available
+          const faviconInfo = tab.faviconUrl
+            ? `&favicon=${encodeURIComponent(tab.faviconUrl)}`
+            : "";
+          enhancedUrl = `${tab.url}#oopstab=${encodeURIComponent(
+            displayName
+          )}${faviconInfo}`;
         }
       } catch (err) {
         console.warn(`Could not enhance URL for ${tab.url}:`, err);
