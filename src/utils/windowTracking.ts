@@ -3,6 +3,8 @@
  * Handles generating and managing oopsWindowIds
  */
 
+import browser from "./browserAPI";
+
 // Storage key for window ID mappings
 const WINDOW_ID_MAP_KEY = "oopsWindowIdMap";
 
@@ -23,8 +25,12 @@ export const generateUUID = (): string => {
  * @returns Promise resolving to the window ID map
  */
 export const getWindowIdMap = async (): Promise<Record<number, string>> => {
-  const result = await chrome.storage.local.get([WINDOW_ID_MAP_KEY]);
-  return result[WINDOW_ID_MAP_KEY] || {};
+  const result = await browser.storage.local.get([WINDOW_ID_MAP_KEY]);
+  // Create an empty record if not found
+  if (!result[WINDOW_ID_MAP_KEY]) {
+    return {} as Record<number, string>;
+  }
+  return result[WINDOW_ID_MAP_KEY] as Record<number, string>;
 };
 
 /**
@@ -34,7 +40,7 @@ export const getWindowIdMap = async (): Promise<Record<number, string>> => {
 export const saveWindowIdMap = async (
   idMap: Record<number, string>
 ): Promise<void> => {
-  await chrome.storage.local.set({ [WINDOW_ID_MAP_KEY]: idMap });
+  await browser.storage.local.set({ [WINDOW_ID_MAP_KEY]: idMap });
   console.log("Window ID map saved:", idMap);
 };
 
@@ -94,7 +100,7 @@ export const findWindowByOopsId = async (
 
       // Verify that this window still exists
       try {
-        await chrome.windows.get(windowId);
+        await browser.windows.get(windowId);
         return windowId; // Window exists, return the ID
       } catch (err) {
         console.log(
@@ -129,7 +135,7 @@ export const findWindowByOopsId = async (
  */
 export const initializeWindowTracking = async (): Promise<void> => {
   // Get all open windows
-  const windows = await chrome.windows.getAll();
+  const windows = await browser.windows.getAll();
   const idMap = await getWindowIdMap();
   let updatedMap = false;
 

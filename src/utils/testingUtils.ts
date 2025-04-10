@@ -4,6 +4,7 @@
  */
 
 import { getAllSnapshots, getWindowIdMap } from ".";
+import browser, { supportsTabGroups } from "./browserAPI";
 
 /**
  * Log all data in storage for debugging purposes
@@ -59,7 +60,7 @@ export const logStorageState = async (): Promise<void> => {
 export const clearAllData = async (): Promise<void> => {
   if (confirm("Are you sure you want to clear all OopsTab data?")) {
     try {
-      await chrome.storage.local.remove(["oopsWindowIdMap", "oopsSnapshots"]);
+      await browser.storage.local.remove(["oopsWindowIdMap", "oopsSnapshots"]);
       console.log("📢 All OopsTab data cleared from storage");
     } catch (err) {
       console.error("Error clearing data:", err);
@@ -69,17 +70,33 @@ export const clearAllData = async (): Promise<void> => {
 
 /**
  * Get current storage usage
+ * Note: This uses Chrome API if available, otherwise estimates
  */
 export const getStorageUsage = async (): Promise<{ bytesInUse: number }> => {
-  return { bytesInUse: await chrome.storage.local.getBytesInUse(null) };
+  try {
+    // Chrome-specific API
+    if (typeof chrome !== "undefined" && chrome.storage?.local?.getBytesInUse) {
+      return { bytesInUse: await chrome.storage.local.getBytesInUse(null) };
+    }
+
+    // For other browsers, get all data and calculate size from that
+    const allData = await browser.storage.local.get(null);
+    const jsonSize = JSON.stringify(allData).length;
+
+    // Estimate: JSON string length is a reasonable approximation
+    return { bytesInUse: jsonSize };
+  } catch (error) {
+    console.warn("Error getting storage usage:", error);
+    return { bytesInUse: 0 };
+  }
 };
 
 /**
- * Get approximate Chrome storage quota
- * Note: This is an approximate value as Chrome doesn't expose exact quota
+ * Get approximate storage quota
+ * Note: This is an approximate value as browsers don't expose exact quota
  */
 export const getStorageQuota = async (): Promise<number> => {
-  // Chrome local storage has approximately 5MB limit
+  // Local storage has approximately 5MB limit in most browsers
   return 5 * 1024 * 1024;
 };
 
@@ -118,7 +135,7 @@ export const createTestWindow = async (
     ];
 
     // Create a new window with the first tab
-    const newWindow = await chrome.windows.create({
+    const newWindow = await browser.windows.create({
       url: testUrls[0],
       focused: true,
     });
@@ -138,7 +155,7 @@ export const createTestWindow = async (
     }
 
     for (let i = 0; i < remainingTabs; i++) {
-      const tab = await chrome.tabs.create({
+      const tab = await browser.tabs.create({
         windowId,
         url: testUrls[i + 1],
       });
@@ -149,33 +166,41 @@ export const createTestWindow = async (
     }
 
     // Create tab groups if requested and API is available
-    if (useGroups && chrome.tabGroups && tabIds.length >= 4) {
-      // Create first group with first 2 tabs
-      const groupA = await chrome.tabs.group({
-        tabIds: tabIds.slice(0, 2),
-        createProperties: { windowId },
-      });
+    if (useGroups && supportsTabGroups && tabIds.length >= 4) {
+      try {
+        // Create first group with first 2 tabs
+        // @ts-ignore - Browser may have inconsistent API shape
+        const groupA = await browser.tabs.group({
+          tabIds: tabIds.slice(0, 2),
+          createProperties: { windowId },
+        });
 
-      await chrome.tabGroups.update(groupA, {
-        title: "Group A",
-        color: "blue",
-      });
+        // @ts-ignore - Browser may have inconsistent API shape
+        await browser.tabGroups.update(groupA, {
+          title: "Group A",
+          color: "blue",
+        });
 
-      // Create second group with next 2 tabs
-      const groupB = await chrome.tabs.group({
-        tabIds: tabIds.slice(2, 4),
-        createProperties: { windowId },
-      });
+        // Create second group with next 2 tabs
+        // @ts-ignore - Browser may have inconsistent API shape
+        const groupB = await browser.tabs.group({
+          tabIds: tabIds.slice(2, 4),
+          createProperties: { windowId },
+        });
 
-      await chrome.tabGroups.update(groupB, {
-        title: "Group B",
-        color: "red",
-      });
+        // @ts-ignore - Browser may have inconsistent API shape
+        await browser.tabGroups.update(groupB, {
+          title: "Group B",
+          color: "red",
+        });
+      } catch (err) {
+        console.warn("Error creating tab groups:", err);
+      }
     }
 
     console.log(
       `Created test window with ${tabIds.length} tabs${
-        useGroups ? " and groups" : ""
+        useGroups && supportsTabGroups ? " and groups" : ""
       }`
     );
     return windowId;

@@ -7,6 +7,7 @@ export * from "./windowTracking";
 export * from "./snapshotManager";
 export * from "./restoreManager";
 export * from "./testingUtils";
+export * from "./browserAPI";
 
 // Add debounce utility
 

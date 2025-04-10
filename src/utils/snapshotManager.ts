@@ -4,6 +4,7 @@
  */
 
 import { getOopsWindowId } from "./windowTracking";
+import browser, { supportsTabGroups } from "./browserAPI";
 
 // Storage keys
 const SNAPSHOTS_KEY = "oopsSnapshots";
@@ -20,7 +21,7 @@ export interface TabData {
 }
 
 // Define proper type for tab group color
-type TabGroupColor = chrome.tabGroups.ColorEnum;
+type TabGroupColor = any; // Using any for cross-browser compatibility
 
 export interface TabGroupData {
   id: number;
@@ -45,8 +46,8 @@ export interface WindowEntry {
  * @returns Promise resolving to all window entries
  */
 export const getAllSnapshots = async (): Promise<WindowEntry[]> => {
-  const result = await chrome.storage.local.get([SNAPSHOTS_KEY]);
-  return result[SNAPSHOTS_KEY] || [];
+  const result = await browser.storage.local.get([SNAPSHOTS_KEY]);
+  return Array.isArray(result[SNAPSHOTS_KEY]) ? result[SNAPSHOTS_KEY] : [];
 };
 
 /**
@@ -56,7 +57,7 @@ export const getAllSnapshots = async (): Promise<WindowEntry[]> => {
 export const saveAllSnapshots = async (
   entries: WindowEntry[]
 ): Promise<void> => {
-  await chrome.storage.local.set({ [SNAPSHOTS_KEY]: entries });
+  await browser.storage.local.set({ [SNAPSHOTS_KEY]: entries });
   console.log("Snapshots saved:", entries);
 };
 
@@ -90,7 +91,7 @@ export const createWindowSnapshot = async (
     }
 
     // Get tabs in this window
-    const tabs = await chrome.tabs.query({ windowId });
+    const tabs = await browser.tabs.query({ windowId });
 
     // Don't create snapshots for empty windows
     if (tabs.length === 0) {
@@ -101,24 +102,28 @@ export const createWindowSnapshot = async (
     // Collect tab group information
     const groupIds = new Set<number>();
     tabs.forEach((tab) => {
-      if (tab.groupId && tab.groupId !== chrome.tabGroups.TAB_GROUP_ID_NONE) {
+      if (tab.groupId && tab.groupId !== -1) {
+        // -1 is the standard TAB_GROUP_ID_NONE
         groupIds.add(tab.groupId);
       }
     });
 
     // Get group details
     const groups: TabGroupData[] = [];
-    for (const groupId of groupIds) {
-      try {
-        const group = await chrome.tabGroups.get(groupId);
-        groups.push({
-          id: group.id,
-          title: group.title,
-          color: group.color,
-          collapsed: group.collapsed,
-        });
-      } catch (err) {
-        console.warn(`Failed to get group ${groupId}:`, err);
+    if (supportsTabGroups) {
+      for (const groupId of groupIds) {
+        try {
+          // @ts-ignore - Browser may have inconsistent API shape
+          const group = await browser.tabGroups.get(groupId);
+          groups.push({
+            id: group.id,
+            title: group.title,
+            color: group.color,
+            collapsed: group.collapsed,
+          });
+        } catch (err) {
+          console.warn(`Failed to get group ${groupId}:`, err);
+        }
       }
     }
 
@@ -128,7 +133,7 @@ export const createWindowSnapshot = async (
       url: tab.url || "",
       title: tab.title || "",
       pinned: tab.pinned || false,
-      groupId: tab.groupId || chrome.tabGroups.TAB_GROUP_ID_NONE,
+      groupId: tab.groupId || -1, // -1 is the standard TAB_GROUP_ID_NONE
       index: tab.index,
     }));
 

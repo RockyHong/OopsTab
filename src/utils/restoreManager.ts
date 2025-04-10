@@ -9,6 +9,7 @@ import {
   getWindowIdMap,
   saveWindowIdMap,
 } from "./windowTracking";
+import browser, { isFirefox, supportsTabGroups } from "./browserAPI";
 
 /**
  * Check if a window with the given oopsWindowId is currently open
@@ -28,7 +29,7 @@ export const findOpenWindow = async (
  */
 export const focusWindow = async (windowId: number): Promise<boolean> => {
   try {
-    await chrome.windows.update(windowId, { focused: true });
+    await browser.windows.update(windowId, { focused: true });
     console.log(`Focused window ${windowId}`);
     return true;
   } catch (err) {
@@ -61,7 +62,7 @@ export const createWindowFromSnapshot = async (
 
     // Create a new window with the first tab
     const firstTab = sortedTabs[0];
-    const createdWindow = await chrome.windows.create({
+    const createdWindow = await browser.windows.create({
       url: firstTab.url,
       focused: true,
     });
@@ -81,27 +82,36 @@ export const createWindowFromSnapshot = async (
 
     // Update the first tab's properties
     if (firstTabId) {
-      await chrome.tabs.update(firstTabId, { pinned: firstTab.pinned });
+      await browser.tabs.update(firstTabId, { pinned: firstTab.pinned });
     }
 
-    // Create the rest of the tabs in a discarded state (not loaded)
+    // Create the rest of the tabs without loading content immediately
     for (let i = 1; i < sortedTabs.length; i++) {
       const tab = sortedTabs[i];
-      const newTab = await chrome.tabs.create({
+      const newTab = await browser.tabs.create({
         windowId: newWindowId,
         url: tab.url,
         pinned: tab.pinned,
         index: tab.index,
         active: false,
-        discarded: true, // This creates the tab without loading the content
       });
 
       // Store the new tab ID for group creation
       tab.id = newTab.id || 0;
+
+      // Discard the tab to prevent loading until user activates it
+      if (newTab.id) {
+        try {
+          await browser.tabs.discard(newTab.id);
+        } catch (err) {
+          console.warn(`Could not discard tab ${newTab.id}:`, err);
+        }
+      }
     }
 
     // Handle tab groups if the API is available
-    if (snapshot.groups.length > 0 && chrome.tabGroups) {
+    // Some browsers like Firefox don't support tabGroups yet
+    if (snapshot.groups.length > 0 && supportsTabGroups && !isFirefox) {
       for (const group of snapshot.groups) {
         // Find all tabs in this group
         const tabsInGroup = sortedTabs
@@ -111,23 +121,37 @@ export const createWindowFromSnapshot = async (
 
         if (tabsInGroup.length > 0) {
           try {
-            // Create the group
-            const groupId = await chrome.tabs.group({
+            // Use type assertion to handle inconsistent browser API shapes
+            const groupIdResult = await (browser.tabs.group as any)({
               tabIds: tabsInGroup,
               createProperties: { windowId: newWindowId },
             });
 
-            // Update group properties
-            await chrome.tabGroups.update(groupId, {
-              title: group.title,
-              color: group.color as chrome.tabGroups.ColorEnum,
-              collapsed: group.collapsed,
-            });
+            // Handle case where the API returns boolean or number
+            const groupId =
+              typeof groupIdResult === "number"
+                ? groupIdResult
+                : tabsInGroup[0]; // Fallback to first tab ID as group identifier
+
+            // Only update if we have a valid numeric ID and the API exists
+            if (
+              typeof groupId === "number" &&
+              browser.tabGroups &&
+              typeof browser.tabGroups.update === "function"
+            ) {
+              await (browser.tabGroups.update as any)(groupId, {
+                title: group.title,
+                color: group.color,
+                collapsed: group.collapsed,
+              });
+            }
           } catch (err) {
             console.warn("Error creating tab group:", err);
           }
         }
       }
+    } else if (snapshot.groups.length > 0) {
+      console.log("Tab groups not supported in this browser");
     }
 
     console.log(`Restored window from snapshot with ${sortedTabs.length} tabs`);
