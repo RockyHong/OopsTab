@@ -147,6 +147,12 @@ export const restoreSession = async (
   snapshot: WindowSnapshot
 ): Promise<boolean> => {
   try {
+    // Check if snapshot has valid tabs
+    if (!snapshot.tabs || snapshot.tabs.length === 0) {
+      console.error("Cannot restore snapshot with no tabs");
+      return false;
+    }
+
     // Check if the window is already open
     const existingWindowId = await findOpenWindow(oopsWindowId);
 

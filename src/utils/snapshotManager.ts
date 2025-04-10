@@ -92,6 +92,12 @@ export const createWindowSnapshot = async (
     // Get tabs in this window
     const tabs = await chrome.tabs.query({ windowId });
 
+    // Don't create snapshots for empty windows
+    if (tabs.length === 0) {
+      console.log(`Skipping snapshot for window ${windowId} - no tabs`);
+      return false;
+    }
+
     // Collect tab group information
     const groupIds = new Set<number>();
     tabs.forEach((tab) => {
@@ -126,10 +132,21 @@ export const createWindowSnapshot = async (
       index: tab.index,
     }));
 
+    // Filter out invalid tabs (missing URLs)
+    const validTabs = tabsData.filter(
+      (tab) => tab.url && tab.url.startsWith("http")
+    );
+
+    // Don't create snapshots if there are no valid tabs
+    if (validTabs.length === 0) {
+      console.log(`Skipping snapshot for window ${windowId} - no valid tabs`);
+      return false;
+    }
+
     // Create snapshot
     const snapshot: WindowSnapshot = {
       timestamp: Date.now(),
-      tabs: tabsData,
+      tabs: validTabs,
       groups,
     };
 
@@ -159,7 +176,9 @@ export const createWindowSnapshot = async (
 
     // Save updated snapshots
     await saveAllSnapshots(allSnapshots);
-    console.log(`Created snapshot for window ${windowId} (${oopsWindowId})`);
+    console.log(
+      `Created snapshot for window ${windowId} (${oopsWindowId}) with ${validTabs.length} tabs`
+    );
     return true;
   } catch (err) {
     console.error("Error creating snapshot:", err);
