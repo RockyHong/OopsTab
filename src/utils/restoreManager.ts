@@ -84,7 +84,7 @@ export const createWindowFromSnapshot = async (
       await chrome.tabs.update(firstTabId, { pinned: firstTab.pinned });
     }
 
-    // Create the rest of the tabs
+    // Create the rest of the tabs in a discarded state (not loaded)
     for (let i = 1; i < sortedTabs.length; i++) {
       const tab = sortedTabs[i];
       const newTab = await chrome.tabs.create({
@@ -92,6 +92,8 @@ export const createWindowFromSnapshot = async (
         url: tab.url,
         pinned: tab.pinned,
         index: tab.index,
+        active: false,
+        discarded: true, // This creates the tab without loading the content
       });
 
       // Store the new tab ID for group creation
