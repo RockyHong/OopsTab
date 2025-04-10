@@ -1,0 +1,39 @@
+{
+  "name": "oopstab",
+  "version": "1.0.0",
+  "description": "Chrome Extension Snapshot Manager",
+  "scripts": {
+    "dev": "webpack --watch --config webpack.config.js --mode=development",
+    "build": "webpack --config webpack.config.js --mode=production",
+    "lint": "eslint . --ext .ts,.tsx"
+  },
+  "dependencies": {
+    "@emotion/react": "^11.11.1",
+    "@emotion/styled": "^11.11.0",
+    "@heroicons/react": "^2.0.18",
+    "@mui/material": "^5.14.5",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.246",
+    "@types/react": "^18.2.20",
+    "@types/react-dom": "^18.2.7",
+    "@typescript-eslint/eslint-plugin": "^6.4.0",
+    "@typescript-eslint/parser": "^6.4.0",
+    "autoprefixer": "^10.4.15",
+    "copy-webpack-plugin": "^11.0.0",
+    "css-loader": "^6.8.1",
+    "eslint": "^8.47.0",
+    "eslint-plugin-react": "^7.33.2",
+    "html-webpack-plugin": "^5.5.3",
+    "postcss": "^8.4.28",
+    "postcss-loader": "^7.3.3",
+    "style-loader": "^3.3.3",
+    "tailwindcss": "^3.3.3",
+    "ts-loader": "^9.4.4",
+    "typescript": "^5.1.6",
+    "webpack": "^5.88.2",
+    "webpack-cli": "^5.1.4"
+  }
+} 

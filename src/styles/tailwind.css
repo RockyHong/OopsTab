@@ -1,0 +1,30 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: 'Roboto', sans-serif;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Outfit', sans-serif;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-primary text-white rounded-md px-4 py-2 text-sm font-medium shadow-sm transition-all hover:bg-[#2B7C60];
+  }
+  
+  .btn-passive {
+    @apply bg-gray-200 text-gray-700 rounded-md px-4 py-2 text-sm font-medium shadow-sm transition-all hover:bg-gray-300;
+  }
+  
+  .btn-danger {
+    @apply bg-danger text-white rounded-md px-4 py-2 text-sm font-medium shadow-sm transition-all hover:bg-red-600;
+  }
+  
+  .card {
+    @apply bg-white rounded-lg shadow-md p-4 flex flex-col gap-4;
+  }
+} 
