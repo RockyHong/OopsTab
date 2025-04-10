@@ -85,11 +85,39 @@ export const findWindowByOopsId = async (
   oopsWindowId: string
 ): Promise<number | null> => {
   const idMap = await getWindowIdMap();
+  let staleEntries: number[] = [];
 
-  for (const [windowId, id] of Object.entries(idMap)) {
+  // First find the window ID for this oopsWindowId
+  for (const [windowIdStr, id] of Object.entries(idMap)) {
     if (id === oopsWindowId) {
-      return parseInt(windowId);
+      const windowId = parseInt(windowIdStr, 10);
+
+      // Verify that this window still exists
+      try {
+        await chrome.windows.get(windowId);
+        return windowId; // Window exists, return the ID
+      } catch (err) {
+        console.log(
+          `Window ${windowId} no longer exists, will remove from map`
+        );
+        staleEntries.push(windowId);
+      }
     }
+  }
+
+  // Clean up any stale entries found
+  if (staleEntries.length > 0) {
+    const updatedMap: Record<number, string> = {};
+
+    // Only keep non-stale entries
+    for (const [windowIdStr, id] of Object.entries(idMap)) {
+      const windowId = parseInt(windowIdStr, 10);
+      if (!staleEntries.includes(windowId)) {
+        updatedMap[windowId] = id;
+      }
+    }
+
+    await saveWindowIdMap(updatedMap);
   }
 
   return null;

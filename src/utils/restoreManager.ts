@@ -4,7 +4,11 @@
  */
 
 import { WindowSnapshot } from "./snapshotManager";
-import { findWindowByOopsId } from "./windowTracking";
+import {
+  findWindowByOopsId,
+  getWindowIdMap,
+  saveWindowIdMap,
+} from "./windowTracking";
 
 /**
  * Check if a window with the given oopsWindowId is currently open
@@ -152,7 +156,19 @@ export const restoreSession = async (
     } else {
       // Create a new window with the snapshot data
       const newWindowId = await createWindowFromSnapshot(snapshot);
-      return newWindowId !== null;
+
+      if (newWindowId) {
+        // Associate the new window with the original oopsWindowId
+        const idMap = await getWindowIdMap();
+        idMap[newWindowId] = oopsWindowId;
+        await saveWindowIdMap(idMap);
+        console.log(
+          `Associated new window ${newWindowId} with original oopsWindowId ${oopsWindowId}`
+        );
+        return true;
+      }
+
+      return false;
     }
   } catch (err) {
     console.error("Error restoring session:", err);
