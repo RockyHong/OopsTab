@@ -74,6 +74,23 @@ export interface SnapshotMap {
   [oopsWindowId: string]: WindowSnapshot;
 }
 
+// Add a Set to track oopsWindowIds that have been deleted but still have active windows
+// This helps us recover snapshots for windows that were deleted in the UI
+const deletedWindowSnapshots = new Set<string>();
+
+// Add a temporary cache to store the last known state of windows
+// This is used when windows are closed and we need to create a final snapshot
+// Map of windowId to cached snapshot data
+const windowStateCache = new Map<
+  number,
+  {
+    timestamp: number;
+    tabsData: TabData[];
+    groups: TabGroupData[];
+    oopsWindowId: string | null;
+  }
+>();
+
 /**
  * Get the current configuration
  * @returns Promise resolving to the current configuration
@@ -182,6 +199,105 @@ const extractOriginalTabData = (
 };
 
 /**
+ * Cache the current state of a window for use if it's closed
+ * @param windowId The window ID to cache
+ */
+export const cacheWindowState = async (windowId: number): Promise<void> => {
+  try {
+    // Get the oopsWindowId for this window
+    const oopsWindowId = await getOopsWindowId(windowId);
+
+    // Get tabs in this window
+    const tabs = await browser.tabs.query({ windowId });
+
+    // Don't cache empty windows
+    if (tabs.length === 0) {
+      return;
+    }
+
+    // Collect tab group information
+    const groupIds = new Set<number>();
+    tabs.forEach((tab) => {
+      if (tab.groupId && tab.groupId !== -1) {
+        groupIds.add(tab.groupId);
+      }
+    });
+
+    // Get group details
+    const groups: TabGroupData[] = [];
+    if (supportsTabGroups) {
+      for (const groupId of groupIds) {
+        try {
+          // @ts-ignore - Browser may have inconsistent API shape
+          const group = await browser.tabGroups.get(groupId);
+          groups.push({
+            id: group.id,
+            title: group.title,
+            color: group.color,
+            collapsed: group.collapsed,
+          });
+        } catch (err) {
+          console.warn(`Failed to get group ${groupId}:`, err);
+        }
+      }
+    }
+
+    // Create tab data
+    const tabsData: TabData[] = tabs.map((tab) => {
+      // Check if this is a middleware tab
+      const originalTabData = extractOriginalTabData(tab);
+
+      if (originalTabData) {
+        // Use the original tab data stored in the middleware tab
+        return {
+          id: tab.id || 0,
+          url: originalTabData.url,
+          title: originalTabData.title,
+          pinned: tab.pinned || false,
+          groupId: tab.groupId || -1,
+          index: tab.index,
+          faviconUrl: originalTabData.faviconUrl || "",
+        };
+      }
+
+      // Regular tab
+      return {
+        id: tab.id || 0,
+        url: tab.url || "",
+        title: tab.title || "",
+        pinned: tab.pinned || false,
+        groupId: tab.groupId || -1,
+        index: tab.index,
+        faviconUrl: tab.favIconUrl || "",
+      };
+    });
+
+    // Store in the cache
+    windowStateCache.set(windowId, {
+      timestamp: Date.now(),
+      tabsData,
+      groups,
+      oopsWindowId,
+    });
+
+    console.log(
+      `Cached state for window ${windowId} with ${tabs.length} tabs for potential closure`
+    );
+
+    // Set a timeout to remove this from cache after 30 seconds
+    // In case the window doesn't actually close
+    setTimeout(() => {
+      if (windowStateCache.has(windowId)) {
+        windowStateCache.delete(windowId);
+        console.log(`Removed stale window state cache for window ${windowId}`);
+      }
+    }, 30000);
+  } catch (err) {
+    console.error(`Error caching window state for ${windowId}:`, err);
+  }
+};
+
+/**
  * Create a new snapshot of a window
  * @param windowId Window ID to snapshot
  * @returns Promise resolving to true if snapshot was created
@@ -239,6 +355,9 @@ export const createWindowSnapshot = async (
       console.log(
         `Skipping snapshot for window ${windowId} - only one tab and no groups`
       );
+      // Don't delete existing snapshots as this could break window tracking
+      // We'll just skip saving but preserve any existing snapshots
+      /*
       // Also attempt to delete any existing snapshot for this window
       // in case it previously had more tabs/groups
       try {
@@ -256,6 +375,7 @@ export const createWindowSnapshot = async (
           delErr
         );
       }
+      */
       return false; // Do not proceed to create/save the snapshot
     }
 
@@ -305,6 +425,18 @@ export const createWindowSnapshot = async (
     // Save back to storage
     await saveAllSnapshots(snapshots);
 
+    // Also cache the window state for potential window closure
+    // This ensures we have the latest state cached at all times
+    windowStateCache.set(windowId, {
+      timestamp: Date.now(),
+      tabsData,
+      groups,
+      oopsWindowId,
+    });
+    console.log(
+      `Cached state for window ${windowId} with ${tabs.length} tabs along with snapshot`
+    );
+
     console.log(
       `Created snapshot for window ${windowId} with ${tabs.length} tabs`
     );
@@ -339,10 +471,16 @@ export const deleteSnapshot = async (
 
   if (!allSnapshots[oopsWindowId]) return false;
 
+  // Track this ID as deleted but possibly still active
+  deletedWindowSnapshots.add(oopsWindowId);
+
+  // Delete the snapshot but don't remove window ID mapping
   delete allSnapshots[oopsWindowId];
   await saveAllSnapshots(allSnapshots);
 
-  console.log(`Deleted snapshot for window ${oopsWindowId}`);
+  console.log(
+    `Deleted snapshot for window ${oopsWindowId} (window tracking preserved, marked as deleted but active window)`
+  );
   return true;
 };
 
@@ -352,8 +490,18 @@ export const deleteSnapshot = async (
  */
 export const deleteAllSnapshots = async (): Promise<boolean> => {
   try {
+    // Get all snapshots first
+    const allSnapshots = await getAllSnapshots();
+
+    // Track all deleted IDs
+    for (const oopsWindowId of Object.keys(allSnapshots)) {
+      deletedWindowSnapshots.add(oopsWindowId);
+    }
+
     await saveAllSnapshots({}); // Save an empty map
-    console.log("Deleted all snapshots");
+    console.log(
+      "Deleted all snapshots (tracking active windows for save-on-close)"
+    );
     return true;
   } catch (err) {
     console.error("Error deleting all snapshots:", err);
@@ -525,4 +673,183 @@ export const checkStorageLimits = async (): Promise<{
     console.error("Error checking storage limits:", err);
     return { isApproachingLimit: false, percentUsed: 0 };
   }
+};
+
+/**
+ * Create a final snapshot of a window when it's being closed
+ * This version doesn't skip single-tab windows like createWindowSnapshot does
+ * @param windowId Window ID to snapshot
+ * @returns Promise resolving to true if snapshot was created
+ */
+export const createFinalWindowSnapshot = async (
+  windowId: number
+): Promise<boolean> => {
+  try {
+    // Get the oopsWindowId for this window
+    const oopsWindowId = await getOopsWindowId(windowId);
+    if (!oopsWindowId) {
+      console.error(`No oopsWindowId found for window ${windowId}`);
+      return false;
+    }
+
+    console.log(
+      `Creating final snapshot for window ${windowId} with oopsWindowId ${oopsWindowId}`
+    );
+
+    // Check if this window was previously deleted in the UI
+    const wasDeleted = deletedWindowSnapshots.has(oopsWindowId);
+    if (wasDeleted) {
+      console.log(
+        `Window ${windowId} (${oopsWindowId}) was previously deleted in UI, will force save on close`
+      );
+      // Remove from our tracking set since we're handling it now
+      deletedWindowSnapshots.delete(oopsWindowId);
+    }
+
+    // Check if we have cached data for this window (because it might be closed already)
+    const cachedData = windowStateCache.get(windowId);
+
+    // Get tabs in this window if it's still open
+    let tabs;
+    let usedCache = false;
+    try {
+      tabs = await browser.tabs.query({ windowId });
+
+      // If we got no tabs but have cached data, use the cache
+      if ((!tabs || tabs.length === 0) && cachedData) {
+        console.log(
+          `Window ${windowId} has no tabs, using cached data with ${cachedData.tabsData.length} tabs`
+        );
+        usedCache = true;
+      }
+    } catch (e) {
+      console.log(
+        `Window ${windowId} appears to be closed already, will try to use cached data`
+      );
+      if (cachedData) {
+        usedCache = true;
+      } else {
+        console.error(`No cached data available for closed window ${windowId}`);
+        return false;
+      }
+    }
+
+    // If we need to use cached data
+    let tabsData: TabData[] = [];
+    let groups: TabGroupData[] = [];
+
+    if (usedCache && cachedData) {
+      // Use the cached data
+      tabsData = cachedData.tabsData;
+      groups = cachedData.groups;
+
+      // Now that we've used the cache, remove it
+      windowStateCache.delete(windowId);
+      console.log(`Used and removed cached data for window ${windowId}`);
+    } else {
+      // Don't create snapshots for empty windows if we don't have cached data
+      if (!tabs || tabs.length === 0) {
+        console.log(
+          `Skipping final snapshot for window ${windowId} - no tabs and no cached data`
+        );
+        return false;
+      }
+
+      // Collect tab group information
+      const groupIds = new Set<number>();
+      tabs.forEach((tab) => {
+        if (tab.groupId && tab.groupId !== -1) {
+          // -1 is the standard TAB_GROUP_ID_NONE
+          groupIds.add(tab.groupId);
+        }
+      });
+
+      // Get group details
+      groups = [];
+      if (supportsTabGroups) {
+        for (const groupId of groupIds) {
+          try {
+            // @ts-ignore - Browser may have inconsistent API shape
+            const group = await browser.tabGroups.get(groupId);
+            groups.push({
+              id: group.id,
+              title: group.title,
+              color: group.color,
+              collapsed: group.collapsed,
+            });
+          } catch (err) {
+            console.warn(`Failed to get group ${groupId}:`, err);
+          }
+        }
+      }
+
+      // Create tab data
+      tabsData = tabs.map((tab) => {
+        // Check if this is a middleware tab
+        const originalTabData = extractOriginalTabData(tab);
+
+        if (originalTabData) {
+          // Use the original tab data stored in the middleware tab
+          return {
+            id: tab.id || 0,
+            url: originalTabData.url,
+            title: originalTabData.title,
+            pinned: tab.pinned || false,
+            groupId: tab.groupId || -1, // -1 is the standard TAB_GROUP_ID_NONE
+            index: tab.index,
+            faviconUrl: originalTabData.faviconUrl || "",
+          };
+        }
+
+        // Regular tab
+        return {
+          id: tab.id || 0,
+          url: tab.url || "",
+          title: tab.title || "",
+          pinned: tab.pinned || false,
+          groupId: tab.groupId || -1,
+          index: tab.index,
+          faviconUrl: tab.favIconUrl || "",
+        };
+      });
+    }
+
+    // Create the snapshot
+    const snapshot: WindowSnapshot = {
+      timestamp: Date.now(),
+      tabs: tabsData,
+      groups,
+    };
+
+    // Get existing snapshots
+    const snapshots = await getAllSnapshots();
+
+    // Update the snapshot for this window
+    snapshots[oopsWindowId] = snapshot;
+
+    // Save back to storage
+    await saveAllSnapshots(snapshots);
+
+    console.log(
+      `Created final snapshot for closing window ${windowId} with ${
+        tabsData.length
+      } tabs${wasDeleted ? " (recovered after UI deletion)" : ""}${
+        usedCache ? " (used cached data)" : ""
+      }`
+    );
+    return true;
+  } catch (err) {
+    console.error("Error creating final window snapshot:", err);
+    return false;
+  }
+};
+
+/**
+ * Reset the tracker for deleted windows
+ * Call this on extension startup
+ */
+export const resetDeletedWindowTracking = (): void => {
+  // Clear the set of tracked deleted windows
+  deletedWindowSnapshots.clear();
+  console.log("Deleted window tracking reset");
 };
