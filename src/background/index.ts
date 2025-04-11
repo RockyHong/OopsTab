@@ -7,10 +7,9 @@ import {
   initializeWindowTracking,
   registerWindow,
   createWindowSnapshot,
-  deleteSnapshot,
-  getOopsWindowId,
   debounce,
 } from "../utils";
+import browser from "../utils/browserAPI";
 
 console.log("OopsTab background service worker initialized");
 
@@ -35,12 +34,12 @@ const debouncedSnapshotCreation = debounce((windowId: number | undefined) => {
 }, 2000); // 2 second debounce
 
 // Listen for extension icon clicks
-chrome.action.onClicked.addListener(() => {
-  chrome.tabs.create({ url: "oopstab.html" });
+browser.action.onClicked.addListener(() => {
+  browser.tabs.create({ url: "oopstab.html" });
 });
 
 // Listen for window creation to assign oopsWindowId
-chrome.windows.onCreated.addListener((window) => {
+browser.windows.onCreated.addListener((window) => {
   if (window.id !== undefined) {
     registerWindow(window.id)
       .then((oopsWindowId) => {
@@ -57,17 +56,17 @@ chrome.windows.onCreated.addListener((window) => {
 });
 
 // Listen for tab events to trigger snapshots
-chrome.tabs.onCreated.addListener((tab) => {
+browser.tabs.onCreated.addListener((tab) => {
   console.log(`Tab created in window ${tab.windowId}`);
   debouncedSnapshotCreation(tab.windowId);
 });
 
-chrome.tabs.onRemoved.addListener((tabId, removeInfo) => {
+browser.tabs.onRemoved.addListener((tabId, removeInfo) => {
   console.log(`Tab removed from window ${removeInfo.windowId}`);
   debouncedSnapshotCreation(removeInfo.windowId);
 });
 
-chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   // Only trigger on complete load or title changes
   if (changeInfo.status === "complete" || changeInfo.title) {
     console.log(`Tab updated in window ${tab.windowId}`);
@@ -76,27 +75,27 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 });
 
 // Listen for tabs being attached to a window (e.g., drag-and-drop)
-chrome.tabs.onAttached.addListener((tabId, attachInfo) => {
+browser.tabs.onAttached.addListener((tabId, attachInfo) => {
   console.log(`Tab ${tabId} attached to window ${attachInfo.newWindowId}`);
   debouncedSnapshotCreation(attachInfo.newWindowId);
 });
 
 // Listen for tabs being detached from a window (e.g., drag-and-drop)
-chrome.tabs.onDetached.addListener((tabId, detachInfo) => {
+browser.tabs.onDetached.addListener((tabId, detachInfo) => {
   console.log(`Tab ${tabId} detached from window ${detachInfo.oldWindowId}`);
   debouncedSnapshotCreation(detachInfo.oldWindowId);
 });
 
 // Handle tab groups if supported
-if (chrome.tabGroups) {
-  chrome.tabGroups.onUpdated.addListener((tabGroup) => {
+if (browser.tabGroups) {
+  browser.tabGroups.onUpdated.addListener((tabGroup) => {
     console.log(`Tab group updated in window ${tabGroup.windowId}`);
     debouncedSnapshotCreation(tabGroup.windowId);
   });
 }
 
 // Handle window closure
-chrome.windows.onRemoved.addListener((windowId) => {
+browser.windows.onRemoved.addListener((windowId) => {
   console.log(`Window closed: ${windowId}`);
   // Create one last snapshot before the window is gone.
   // The createWindowSnapshot function itself will handle

@@ -93,20 +93,15 @@ export const clearAllData = async (): Promise<void> => {
 
 /**
  * Get current storage usage
- * Note: This uses Chrome API if available, otherwise estimates
+ * Note: This estimates storage usage based on data size
  */
 export const getStorageUsage = async (): Promise<{ bytesInUse: number }> => {
   try {
-    // Chrome-specific API
-    if (typeof chrome !== "undefined" && chrome.storage?.local?.getBytesInUse) {
-      return { bytesInUse: await chrome.storage.local.getBytesInUse(null) };
-    }
-
-    // For other browsers, get all data and calculate size from that
+    // Get all data and calculate size from JSON
     const allData = await browser.storage.local.get(null);
     const jsonSize = JSON.stringify(allData).length;
 
-    // Estimate: JSON string length is a reasonable approximation
+    // JSON string length is a reasonable approximation
     return { bytesInUse: jsonSize };
   } catch (error) {
     console.warn("Error getting storage usage:", error);

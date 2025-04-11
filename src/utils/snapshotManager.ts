@@ -183,7 +183,7 @@ const extractOriginalTabData = (
 
 /**
  * Create a new snapshot of a window
- * @param windowId Chrome window ID to snapshot
+ * @param windowId Window ID to snapshot
  * @returns Promise resolving to true if snapshot was created
  */
 export const createWindowSnapshot = async (
