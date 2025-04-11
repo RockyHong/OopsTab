@@ -496,14 +496,20 @@ const createWindowWithTabsAndGroups = async (
 
             // Update group properties
             if (groupId !== undefined) {
-              await browser.tabGroups.update(groupId, {
-                title: groupConfig.title,
-                color: groupConfig.color,
-              });
+              if (browser.tabGroups) {
+                await browser.tabGroups.update(groupId, {
+                  title: groupConfig.title,
+                  color: groupConfig.color,
+                });
 
-              // Handle collapsed state separately
-              if (groupConfig.collapsed) {
-                await browser.tabGroups.update(groupId, { collapsed: true });
+                // Handle collapsed state separately
+                if (groupConfig.collapsed) {
+                  await browser.tabGroups.update(groupId, {
+                    collapsed: groupConfig.collapsed as unknown as number,
+                  });
+                }
+              } else {
+                console.log("Tab groups API not available");
               }
             }
           } catch (err) {
