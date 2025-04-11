@@ -7,7 +7,6 @@ document.addEventListener('DOMContentLoaded', function() {
   const targetUrl = urlParams.get('url');
   const pageTitle = urlParams.get('title');
   const faviconUrl = urlParams.get('favicon');
-  const oopsTabData = urlParams.get('tabdata');
   
   // Set page title
   if (pageTitle) {
