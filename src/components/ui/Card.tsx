@@ -1,20 +1,21 @@
 import React from "react";
 
-interface CardProps {
+export interface CardProps {
   children: React.ReactNode;
   className?: string;
   variant?: "default" | "highlighted" | "inactive";
   hoverable?: boolean;
+  onClick?: React.MouseEventHandler<HTMLDivElement>;
 }
 
-const Card: React.FC<CardProps> = ({
+const Card: React.FC<CardProps & React.HTMLAttributes<HTMLDivElement>> = ({
   children,
   className = "",
   variant = "default",
   hoverable = false,
   ...props
 }) => {
-  const baseClasses = "card";
+  const baseClasses = "rounded-lg shadow-md bg-white";
 
   const variantClasses = {
     default: "",
@@ -22,9 +23,10 @@ const Card: React.FC<CardProps> = ({
     inactive: "opacity-70",
   };
 
-  const hoverClasses = hoverable
-    ? "hover:shadow-lg transition-shadow cursor-pointer"
-    : "";
+  const hoverClasses =
+    hoverable || props.onClick
+      ? "hover:shadow-lg transition-shadow cursor-pointer"
+      : "";
 
   return (
     <div

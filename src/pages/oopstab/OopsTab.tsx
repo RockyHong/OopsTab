@@ -8,6 +8,10 @@ import {
   ListItem,
   Modal,
   StorageIndicator,
+  Tag,
+  TagSelector,
+  SearchInput,
+  SortSelect,
 } from "../../components/ui";
 import {
   CogIcon,
@@ -16,12 +20,13 @@ import {
   DocumentDuplicateIcon,
   ArrowPathRoundedSquareIcon,
   BeakerIcon,
+  StarIcon as SolidStarIcon,
 } from "@heroicons/react/24/solid";
+import { StarIcon as OutlineStarIcon } from "@heroicons/react/24/outline";
 import {
   getAllSnapshots,
   WindowEntry,
   WindowSnapshot,
-  restoreSession,
   deleteSnapshot,
   saveSnapshot,
   renameSnapshot,
@@ -39,26 +44,27 @@ import {
   createTestWindow,
   createBulkTestSnapshots,
   logStorageState,
+  starSnapshot,
+  getStarredSnapshots,
+  restoreSession,
+  restoreMultipleSessions,
+  deleteSnapshotWithUndo,
+  getUndoBuffer,
+  undoDelete,
+  DeletedSnapshot,
+  formatRelativeTime,
+  formatDateTime,
+  formatFileSize,
 } from "../../utils";
 
-// Helper to format date
-const formatDate = (timestamp: number): string => {
-  const date = new Date(timestamp);
-  const now = new Date();
-  const diffInMinutes = Math.floor(
-    (now.getTime() - date.getTime()) / (1000 * 60)
-  );
-
-  if (diffInMinutes < 1) return "Just now";
-  if (diffInMinutes < 60)
-    return `${diffInMinutes} minute${diffInMinutes > 1 ? "s" : ""} ago`;
-
-  const diffInHours = Math.floor(diffInMinutes / 60);
-  if (diffInHours < 24)
-    return `${diffInHours} hour${diffInHours > 1 ? "s" : ""} ago`;
-
-  return date.toLocaleDateString();
-};
+import {
+  getAllTags,
+  createTag,
+  addTagToSnapshot,
+  removeTagFromSnapshot,
+  Tag as TagType,
+  TAG_COLORS,
+} from "../../utils/tagManager";
 
 const OopsTab: React.FC = () => {
   const [showSettings, setShowSettings] = useState(false);
@@ -68,6 +74,9 @@ const OopsTab: React.FC = () => {
   useEffect(() => {
     setupDebugActions();
   }, []);
+
+  // Get user locale from browser
+  const userLocale = navigator.language;
 
   return (
     <div className="min-h-screen bg-surface">
@@ -168,6 +177,69 @@ const SnapshotsPanel: React.FC = () => {
     timestamp: 0,
   });
 
+  const [allTags, setAllTags] = useState<TagType[]>([]);
+  const [activeFilter, setActiveFilter] = useState<string | null>(null);
+  const [showStarredOnly, setShowStarredOnly] = useState(false);
+
+  // New state for search and sort
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortOption, setSortOption] = useState("newest");
+  const [showFilters, setShowFilters] = useState(false);
+  const [tabCountFilter, setTabCountFilter] = useState({ min: 0, max: 100 });
+  const [dateRangeFilter, setDateRangeFilter] = useState({
+    from: "",
+    to: "",
+  });
+
+  // State for multi-selection
+  const [selectedSessions, setSelectedSessions] = useState<
+    {
+      oopsWindowId: string;
+      timestamp: number;
+    }[]
+  >([]);
+
+  // State for multi-restore modal
+  const [multiRestoreModal, setMultiRestoreModal] = useState({
+    isOpen: false,
+    combineIntoOneWindow: false,
+  });
+
+  // State for undo notification
+  const [undoState, setUndoState] = useState<{
+    show: boolean;
+    oopsWindowId: string;
+    timestamp: number;
+    snapshotName: string;
+    timeoutId: NodeJS.Timeout | null;
+  }>({
+    show: false,
+    oopsWindowId: "",
+    timestamp: 0,
+    snapshotName: "",
+    timeoutId: null,
+  });
+
+  // State for undo history panel
+  const [undoHistoryModal, setUndoHistoryModal] = useState({
+    isOpen: false,
+    items: [] as DeletedSnapshot[],
+    isLoading: false,
+  });
+
+  // Sort options
+  const sortOptions = [
+    { value: "newest", label: "Newest First" },
+    { value: "oldest", label: "Oldest First" },
+    { value: "nameAZ", label: "Name (A-Z)" },
+    { value: "nameZA", label: "Name (Z-A)" },
+    { value: "tabsHighLow", label: "Most Tabs" },
+    { value: "tabsLowHigh", label: "Least Tabs" },
+  ];
+
+  // Get user locale from browser
+  const userLocale = navigator.language;
+
   // Load storage status
   const loadStorageStatus = async () => {
     try {
@@ -190,17 +262,21 @@ const SnapshotsPanel: React.FC = () => {
     }
   };
 
-  // Load snapshots
+  // Load snapshots and tags
   const loadSnapshots = async () => {
     setIsLoading(true);
     try {
       const snapshots = await getAllSnapshots();
       setWindowEntries(snapshots);
 
+      // Load tags
+      const tags = await getAllTags();
+      setAllTags(tags);
+
       // Also update storage status when loading snapshots
       await loadStorageStatus();
     } catch (err) {
-      console.error("Error loading snapshots:", err);
+      console.error("Failed to load snapshots:", err);
     } finally {
       setIsLoading(false);
     }
@@ -228,44 +304,115 @@ const SnapshotsPanel: React.FC = () => {
     }
   };
 
-  // Handle snapshot deletion
+  // Use deleteSnapshotWithUndo instead of deleteSnapshot
   const handleDelete = async (oopsWindowId: string, timestamp: number) => {
-    // Open confirmation dialog instead of using browser's confirm
     setConfirmDialog({
-      isOpen: true,
-      windowId: oopsWindowId,
-      timestamp,
+      isOpen: false,
+      windowId: "",
+      timestamp: 0,
     });
-  };
 
-  // Actual deletion after confirmation
-  const confirmDelete = async () => {
-    const { windowId, timestamp } = confirmDialog;
+    // Find snapshot to get its name
+    const entry = windowEntries.find(
+      (entry) => entry.oopsWindowId === oopsWindowId
+    );
+    const snapshot = entry?.snapshots.find((s) => s.timestamp === timestamp);
+
+    if (!snapshot) return;
+
+    const snapshotName = snapshot.customName || formatSnapshotName(snapshot);
 
     try {
-      const success = await deleteSnapshot(windowId, timestamp);
+      const success = await deleteSnapshotWithUndo(
+        oopsWindowId,
+        timestamp,
+        30000
+      );
+
       if (success) {
-        console.log(
-          `Successfully deleted snapshot ${timestamp} from window ${windowId}`
-        );
-        // Refresh the list
-        loadSnapshots();
-      } else {
-        console.error(
-          `Failed to delete snapshot ${timestamp} from window ${windowId}`
-        );
+        // Show undo notification
+        showUndoNotification(oopsWindowId, timestamp, snapshotName);
+
+        // Refresh the snapshot list
+        await loadSnapshots();
       }
-    } catch (err) {
-      console.error("Error deleting snapshot:", err);
-    } finally {
-      // Close the dialog
-      setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
+    } catch (error) {
+      console.error("Error deleting snapshot:", error);
     }
   };
 
-  // Close the dialog without action
-  const closeConfirmDialog = () => {
-    setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
+  // Helper to generate a snapshot name
+  const formatSnapshotName = (snapshot: WindowSnapshot): string => {
+    if (snapshot.tabs.length === 0) return "Empty Session";
+    return snapshot.tabs[0].title || "Untitled Tab";
+  };
+
+  // Show the undo notification with timeout
+  const showUndoNotification = (
+    oopsWindowId: string,
+    timestamp: number,
+    snapshotName: string
+  ) => {
+    // Clear existing timeout if there's one active
+    if (undoState.timeoutId) {
+      clearTimeout(undoState.timeoutId);
+    }
+
+    // Create new timeout
+    const timeoutId = setTimeout(() => {
+      setUndoState((prev) => ({ ...prev, show: false }));
+    }, 10000); // Show for 10 seconds
+
+    // Update state
+    setUndoState({
+      show: true,
+      oopsWindowId,
+      timestamp,
+      snapshotName,
+      timeoutId,
+    });
+  };
+
+  // Handle undo action
+  const handleUndo = async () => {
+    const { oopsWindowId, timestamp, timeoutId } = undoState;
+
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+
+    setUndoState({
+      show: false,
+      oopsWindowId: "",
+      timestamp: 0,
+      snapshotName: "",
+      timeoutId: null,
+    });
+
+    try {
+      await undoDelete(oopsWindowId, timestamp);
+      await loadSnapshots();
+    } catch (error) {
+      console.error("Error undoing delete:", error);
+    }
+  };
+
+  // Load undo history
+  const loadUndoHistory = async () => {
+    try {
+      setUndoHistoryModal((prev) => ({ ...prev, isLoading: true }));
+
+      const buffer = await getUndoBuffer();
+
+      setUndoHistoryModal({
+        isOpen: true,
+        items: buffer,
+        isLoading: false,
+      });
+    } catch (error) {
+      console.error("Error loading undo history:", error);
+      setUndoHistoryModal((prev) => ({ ...prev, isLoading: false }));
+    }
   };
 
   // Handle saving a snapshot (promotion from auto-saved to saved)
@@ -289,6 +436,236 @@ const SnapshotsPanel: React.FC = () => {
     } catch (err) {
       console.error("Error saving snapshot:", err);
     }
+  };
+
+  // Handle tag creation
+  const handleCreateTag = async (
+    name: string,
+    color: string
+  ): Promise<TagType | null> => {
+    try {
+      const newTag = await createTag(name, color);
+
+      // Update local tag state
+      setAllTags((prev) => [...prev, newTag]);
+
+      return newTag;
+    } catch (error) {
+      console.error("Error creating tag:", error);
+      throw error;
+    }
+  };
+
+  // Toggle tag on a snapshot
+  const handleTagToggle = async (
+    oopsWindowId: string,
+    timestamp: number,
+    tagId: string
+  ) => {
+    // Check if snapshot already has this tag
+    const entry = windowEntries.find(
+      (entry) => entry.oopsWindowId === oopsWindowId
+    );
+    const snapshot = entry?.snapshots.find((s) => s.timestamp === timestamp);
+
+    if (!snapshot) return;
+
+    const hasTag = snapshot.tags?.includes(tagId) || false;
+
+    try {
+      if (hasTag) {
+        await removeTagFromSnapshot(oopsWindowId, timestamp, tagId);
+      } else {
+        await addTagToSnapshot(oopsWindowId, timestamp, tagId);
+      }
+
+      // Refresh snapshots after tag change
+      await loadSnapshots();
+    } catch (error) {
+      console.error("Error toggling tag:", error);
+    }
+  };
+
+  // Filter snapshots by tag
+  const filterByTag = (tagId: string | null) => {
+    setActiveFilter(tagId);
+  };
+
+  // Function to handle starring/unstarring a snapshot
+  const handleStarToggle = async (
+    oopsWindowId: string,
+    timestamp: number,
+    isCurrentlyStarred: boolean
+  ) => {
+    try {
+      await starSnapshot(oopsWindowId, timestamp, !isCurrentlyStarred);
+      await loadSnapshots();
+    } catch (error) {
+      console.error("Error toggling star status:", error);
+    }
+  };
+
+  // Toggle session selection for multi-restore
+  const toggleSessionSelection = (oopsWindowId: string, timestamp: number) => {
+    setSelectedSessions((prev) => {
+      const isAlreadySelected = prev.some(
+        (session) =>
+          session.oopsWindowId === oopsWindowId &&
+          session.timestamp === timestamp
+      );
+
+      if (isAlreadySelected) {
+        return prev.filter(
+          (session) =>
+            !(
+              session.oopsWindowId === oopsWindowId &&
+              session.timestamp === timestamp
+            )
+        );
+      } else {
+        return [...prev, { oopsWindowId, timestamp }];
+      }
+    });
+  };
+
+  // Clear all selected sessions
+  const clearSelectedSessions = () => {
+    setSelectedSessions([]);
+  };
+
+  // Handle multi-session restore
+  const handleMultiRestore = async (combineIntoOneWindow: boolean) => {
+    if (selectedSessions.length === 0) return;
+
+    try {
+      const success = await restoreMultipleSessions(
+        selectedSessions,
+        combineIntoOneWindow
+      );
+
+      if (success) {
+        // Clear selection after successful restore
+        clearSelectedSessions();
+        setMultiRestoreModal({ isOpen: false, combineIntoOneWindow: false });
+      } else {
+        alert("There was an error restoring multiple sessions");
+      }
+    } catch (error) {
+      console.error("Error in multi-session restore:", error);
+      alert("There was an error restoring multiple sessions");
+    }
+  };
+
+  // Get filtered and sorted entries
+  const getFilteredEntries = (): WindowEntry[] => {
+    if (!windowEntries.length) return [];
+
+    // First, apply filters to get matching snapshots
+    let filtered = [...windowEntries]
+      .map((entry) => {
+        // Create a copy with filtered snapshots
+        return {
+          ...entry,
+          snapshots: entry.snapshots.filter((snapshot) => {
+            // Active tag filter
+            if (
+              activeFilter &&
+              (!snapshot.tags || !snapshot.tags.includes(activeFilter))
+            ) {
+              return false;
+            }
+
+            // Starred filter
+            if (showStarredOnly && !snapshot.starred) {
+              return false;
+            }
+
+            // Search query
+            if (searchQuery) {
+              const searchableText = [
+                snapshot.customName || "",
+                ...snapshot.tabs.map((tab) => tab.title || ""),
+                ...snapshot.tabs.map((tab) => tab.url || ""),
+              ]
+                .join(" ")
+                .toLowerCase();
+
+              if (!searchableText.includes(searchQuery.toLowerCase())) {
+                return false;
+              }
+            }
+
+            // Tab count filter
+            const tabCount = snapshot.tabs.length;
+            if (
+              tabCount < tabCountFilter.min ||
+              tabCount > tabCountFilter.max
+            ) {
+              return false;
+            }
+
+            // Date range filter - "from" date
+            if (dateRangeFilter.from) {
+              const fromDate = new Date(dateRangeFilter.from).getTime();
+              if (snapshot.timestamp < fromDate) {
+                return false;
+              }
+            }
+
+            // Date range filter - "to" date
+            if (dateRangeFilter.to) {
+              const toDate =
+                new Date(dateRangeFilter.to).getTime() + 24 * 60 * 60 * 1000; // Include the entire day
+              if (snapshot.timestamp > toDate) {
+                return false;
+              }
+            }
+
+            return true;
+          }),
+        };
+      })
+      .filter((entry) => entry.snapshots.length > 0);
+
+    // Next, sort the results based on the selected sort option
+    if (sortOption !== "newest") {
+      // Sort snapshots in each entry
+      filtered = filtered.map((entry) => {
+        const sortedSnapshots = [...entry.snapshots].sort((a, b) => {
+          switch (sortOption) {
+            case "oldest":
+              return a.timestamp - b.timestamp;
+            case "nameAZ":
+              return (a.customName || "").localeCompare(b.customName || "");
+            case "nameZA":
+              return (b.customName || "").localeCompare(a.customName || "");
+            case "tabsHighLow":
+              return b.tabs.length - a.tabs.length;
+            case "tabsLowHigh":
+              return a.tabs.length - b.tabs.length;
+            default:
+              return 0;
+          }
+        });
+
+        return {
+          ...entry,
+          snapshots: sortedSnapshots,
+        };
+      });
+    }
+
+    return filtered;
+  };
+
+  // Reset all filters
+  const resetFilters = () => {
+    setSearchQuery("");
+    setSortOption("newest");
+    setActiveFilter(null);
+    setShowStarredOnly(false);
+    setTabCountFilter({ min: 0, max: 100 });
+    setDateRangeFilter({ from: "", to: "" });
   };
 
   // Component for editable snapshot names
@@ -450,60 +827,432 @@ const SnapshotsPanel: React.FC = () => {
     snapshot: WindowSnapshot,
     isSaved: boolean
   ) => {
-    // Get the first few tab titles for display
-    const tabTitles = snapshot.tabs
-      .slice(0, 3)
-      .map((tab) => tab.title || tab.url)
-      .filter(Boolean);
+    // Get top tab titles for display
+    const topTabs = snapshot.tabs
+      .slice(0, 2)
+      .map((tab) => tab.title || "Untitled");
 
-    const subtitle =
-      tabTitles.length > 0
-        ? `${tabTitles[0]}${
-            tabTitles.length > 1 ? ` and ${tabTitles.length - 1} more` : ""
-          }`
-        : "No tabs";
+    const tabCountText = `${snapshot.tabs.length} tab${
+      snapshot.tabs.length !== 1 ? "s" : ""
+    }`;
 
-    // Get favicon for display if available (use first tab's favicon)
-    const firstTabWithFavicon = snapshot.tabs.find((tab) => tab.faviconUrl);
-    const icon = firstTabWithFavicon?.faviconUrl ? (
-      <img
-        src={firstTabWithFavicon.faviconUrl}
-        className="h-5 w-5"
-        alt="Tab favicon"
-        onError={(e) => {
-          // Fallback if favicon fails to load
-          e.currentTarget.src = "";
-          e.currentTarget.style.display = "none";
-        }}
-      />
-    ) : (
-      <DocumentDuplicateIcon className="h-5 w-5" />
+    // Get snapshot tags
+    const snapshotTags = allTags.filter((tag) =>
+      snapshot.tags?.includes(tag.id)
+    );
+
+    // Check if this snapshot is selected for multi-restore
+    const isSelected = selectedSessions.some(
+      (session) =>
+        session.oopsWindowId === entry.oopsWindowId &&
+        session.timestamp === snapshot.timestamp
     );
 
     return (
-      <ListItem
+      <Card
         key={snapshot.timestamp}
-        title={
-          <EditableSnapshotName
-            oopsWindowId={entry.oopsWindowId}
-            snapshot={snapshot}
-            onUpdate={loadSnapshots}
-          />
+        className={`mb-3 ${
+          isSaved ? "border-l-4 border-l-primary" : ""
+        } hover:shadow-md transition-shadow ${
+          snapshot.starred ? "bg-amber-50" : ""
+        } ${isSelected ? "ring-2 ring-primary" : ""}`}
+        onClick={() =>
+          toggleSessionSelection(entry.oopsWindowId, snapshot.timestamp)
         }
-        subtitle={subtitle}
-        metadata={formatDate(snapshot.timestamp)}
-        icon={icon}
-        className={isSaved ? "border-l-4 border-primary" : ""}
-        actions={
-          <div className="flex space-x-1">
-            {!isSaved && (
+      >
+        <div className="p-3 space-y-3">
+          <div className="flex flex-wrap gap-2 items-center mb-2">
+            <div className="flex-grow">
+              <div className="flex items-center space-x-1">
+                <IconButton
+                  size="sm"
+                  onClick={() =>
+                    handleStarToggle(
+                      entry.oopsWindowId,
+                      snapshot.timestamp,
+                      !!snapshot.starred
+                    )
+                  }
+                  aria-label={
+                    snapshot.starred ? "Unstar session" : "Star session"
+                  }
+                  className={
+                    snapshot.starred ? "text-amber-500" : "text-gray-400"
+                  }
+                >
+                  {snapshot.starred ? (
+                    <SolidStarIcon className="h-5 w-5" />
+                  ) : (
+                    <OutlineStarIcon className="h-5 w-5" />
+                  )}
+                </IconButton>
+                <EditableSnapshotName
+                  oopsWindowId={entry.oopsWindowId}
+                  snapshot={snapshot}
+                  onUpdate={loadSnapshots}
+                />
+              </div>
+              <div
+                className="text-gray-500 text-sm"
+                title={formatDateTime(snapshot.timestamp, userLocale)}
+              >
+                {formatRelativeTime(snapshot.timestamp, userLocale)}
+              </div>
+            </div>
+
+            <div className="flex space-x-1 items-center">
+              <span className="text-sm font-medium bg-gray-100 text-gray-700 px-2 py-0.5 rounded-full">
+                {tabCountText}
+              </span>
+
               <IconButton
+                size="sm"
+                onClick={() => handleRestore(entry.oopsWindowId, snapshot)}
+                aria-label="Restore session"
+              >
+                <ArrowPathRoundedSquareIcon className="h-4 w-4" />
+              </IconButton>
+
+              {!isSaved && (
+                <IconButton
+                  size="sm"
+                  onClick={() =>
+                    handleSaveSnapshot(entry.oopsWindowId, snapshot.timestamp)
+                  }
+                  aria-label="Save snapshot"
+                >
+                  <DocumentDuplicateIcon className="h-4 w-4" />
+                </IconButton>
+              )}
+
+              <IconButton
+                size="sm"
+                variant="danger"
+                onClick={() =>
+                  setConfirmDialog({
+                    isOpen: true,
+                    windowId: entry.oopsWindowId,
+                    timestamp: snapshot.timestamp,
+                  })
+                }
+                aria-label="Delete snapshot"
+              >
+                <TrashIcon className="h-4 w-4" />
+              </IconButton>
+            </div>
+          </div>
+
+          {/* Tab titles preview */}
+          <div className="text-sm text-gray-700">
+            <ul className="space-y-1">
+              {topTabs.map((title, i) => (
+                <li key={i} className="truncate">
+                  {title}
+                </li>
+              ))}
+              {snapshot.tabs.length > 2 && (
+                <li className="text-gray-500 text-xs">
+                  + {snapshot.tabs.length - 2} more tabs
+                </li>
+              )}
+            </ul>
+          </div>
+
+          {/* Tags section */}
+          <div className="pt-2 border-t border-gray-100">
+            <div className="flex flex-wrap gap-1.5">
+              {snapshotTags.map((tag) => (
+                <Tag
+                  key={tag.id}
+                  id={tag.id}
+                  label={tag.name}
+                  color={tag.color}
+                  size="sm"
+                  onClick={() => filterByTag(tag.id)}
+                />
+              ))}
+
+              <Button
+                variant="passive"
+                size="xs"
+                onClick={() => {
+                  // Open tag editor modal
+                  setTagEditorState({
+                    isOpen: true,
+                    windowId: entry.oopsWindowId,
+                    timestamp: snapshot.timestamp,
+                    selectedTags: snapshot.tags || [],
+                  });
+                }}
+              >
+                {snapshotTags.length > 0 ? "Edit Tags" : "Add Tags"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      </Card>
+    );
+  };
+
+  // State for tag editor modal
+  const [tagEditorState, setTagEditorState] = useState({
+    isOpen: false,
+    windowId: "",
+    timestamp: 0,
+    selectedTags: [] as string[],
+  });
+
+  return (
+    <div className="space-y-6">
+      {/* Search and Filter Bar */}
+      <div className="bg-white p-3 rounded-lg shadow-sm">
+        <div className="flex flex-col gap-3">
+          {/* Search and basic filters */}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <SearchInput
+              value={searchQuery}
+              onChange={setSearchQuery}
+              placeholder="Search sessions..."
+              className="flex-grow max-w-xl"
+            />
+
+            <div className="flex items-center gap-3">
+              <SortSelect
+                options={sortOptions}
+                value={sortOption}
+                onChange={setSortOption}
+              />
+
+              <Button
+                variant="passive"
+                size="sm"
+                onClick={() => setShowFilters(!showFilters)}
+              >
+                {showFilters ? "Hide Filters" : "Show Filters"}
+              </Button>
+
+              {(searchQuery ||
+                activeFilter ||
+                showStarredOnly ||
+                sortOption !== "newest" ||
+                tabCountFilter.min > 0 ||
+                tabCountFilter.max < 100 ||
+                dateRangeFilter.from ||
+                dateRangeFilter.to) && (
+                <Button variant="passive" size="sm" onClick={resetFilters}>
+                  Reset All
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {/* Advanced filters */}
+          {showFilters && (
+            <div className="pt-3 border-t">
+              <div className="flex flex-wrap gap-6">
+                {/* Tags */}
+                {allTags.length > 0 && (
+                  <div className="space-y-1">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Tags
+                    </label>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {allTags.map((tag) => (
+                        <Tag
+                          key={tag.id}
+                          id={tag.id}
+                          label={tag.name}
+                          color={tag.color}
+                          size="sm"
+                          onClick={() =>
+                            filterByTag(activeFilter === tag.id ? null : tag.id)
+                          }
+                          className={
+                            activeFilter === tag.id
+                              ? "ring-1 ring-offset-1"
+                              : "opacity-80"
+                          }
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Starred */}
+                <div>
+                  <div className="flex items-center gap-2">
+                    <label className="text-sm font-medium text-gray-700">
+                      Starred Only
+                    </label>
+                    <Toggle
+                      checked={showStarredOnly}
+                      onChange={() => setShowStarredOnly(!showStarredOnly)}
+                      aria-label="Show starred sessions only"
+                    />
+                  </div>
+                </div>
+
+                {/* Tab Count Range */}
+                <div className="space-y-1">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Tab Count
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min="0"
+                      max="999"
+                      value={tabCountFilter.min}
+                      onChange={(e) =>
+                        setTabCountFilter({
+                          ...tabCountFilter,
+                          min: parseInt(e.target.value) || 0,
+                        })
+                      }
+                      className="w-16 py-1 px-2 border border-gray-300 rounded-md text-sm"
+                    />
+                    <span className="text-gray-500">to</span>
+                    <input
+                      type="number"
+                      min="1"
+                      max="999"
+                      value={tabCountFilter.max}
+                      onChange={(e) =>
+                        setTabCountFilter({
+                          ...tabCountFilter,
+                          max: parseInt(e.target.value) || 100,
+                        })
+                      }
+                      className="w-16 py-1 px-2 border border-gray-300 rounded-md text-sm"
+                    />
+                  </div>
+                </div>
+
+                {/* Date Range */}
+                <div className="space-y-1">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Date Range
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="date"
+                      value={dateRangeFilter.from}
+                      onChange={(e) =>
+                        setDateRangeFilter({
+                          ...dateRangeFilter,
+                          from: e.target.value,
+                        })
+                      }
+                      className="py-1 px-2 border border-gray-300 rounded-md text-sm"
+                    />
+                    <span className="text-gray-500">to</span>
+                    <input
+                      type="date"
+                      value={dateRangeFilter.to}
+                      onChange={(e) =>
+                        setDateRangeFilter({
+                          ...dateRangeFilter,
+                          to: e.target.value,
+                        })
+                      }
+                      className="py-1 px-2 border border-gray-300 rounded-md text-sm"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Multi-Session Action Bar */}
+      {selectedSessions.length > 0 && (
+        <div className="bg-primary bg-opacity-10 p-3 rounded-lg shadow-sm sticky top-0 z-10">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="font-medium text-primary">
+                {selectedSessions.length} session
+                {selectedSessions.length !== 1 ? "s" : ""} selected
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="passive"
+                onClick={clearSelectedSessions}
+              >
+                Cancel
+              </Button>
+              <Button
                 size="sm"
                 variant="primary"
                 onClick={() =>
-                  handleSaveSnapshot(entry.oopsWindowId, snapshot.timestamp)
+                  setMultiRestoreModal({
+                    isOpen: true,
+                    combineIntoOneWindow: false,
+                  })
                 }
-                title="Save this snapshot"
+              >
+                Restore Selected
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Storage indicator */}
+      <Card className="p-4">
+        <div className="space-y-4">
+          <div className="flex justify-between items-center">
+            <Typography variant="h2">Storage Usage</Typography>
+            <span className="text-sm text-gray-600">
+              {formatFileSize(storageStatus.usedBytes, userLocale)} of{" "}
+              {formatFileSize(storageStatus.totalBytes, userLocale)}
+            </span>
+          </div>
+
+          <StorageIndicator
+            percentUsed={storageStatus.percentUsed}
+            isApproachingLimit={storageStatus.isApproachingLimit}
+            warningMessage={storageStatus.warningMessage}
+            usedBytes={storageStatus.usedBytes}
+            totalBytes={storageStatus.totalBytes}
+          />
+          <div className="mt-3 flex justify-between text-xs text-gray-500">
+            <div>
+              Windows: {storageStatus.usedBytes > 0 ? windowEntries.length : 0}
+            </div>
+            <div>
+              Snapshots:{" "}
+              {storageStatus.usedBytes > 0
+                ? windowEntries.reduce(
+                    (acc, entry) => acc + entry.snapshots.length,
+                    0
+                  )
+                : 0}
+            </div>
+            <div>
+              Last updated:{" "}
+              {storageStatus.usedBytes > 0
+                ? formatDateTime(Date.now(), userLocale)
+                : "Never"}
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      {/* Results */}
+      <div className="space-y-8">
+        {/* Auto-saved sessions */}
+        <div>
+          <div className="flex justify-between items-center mb-3">
+            <Typography variant="h2">Auto-Saved Sessions</Typography>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="passive"
+                size="sm"
+                onClick={loadUndoHistory}
+                className="flex items-center gap-1"
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -511,174 +1260,368 @@ const SnapshotsPanel: React.FC = () => {
                   fill="currentColor"
                   className="w-4 h-4"
                 >
-                  <path d="M3 3a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 3v14.25a2.25 2.25 0 0 1-2.25 2.25h-13.5A2.25 2.25 0 0 1 3 17.25V3Z" />
-                  <path d="M7.5 15.75v-6a.75.75 0 0 1 1.5 0v6a.75.75 0 0 1-1.5 0ZM15 15.75v-6a.75.75 0 0 1 1.5 0v6a.75.75 0 0 1-1.5 0Z" />
+                  <path
+                    fillRule="evenodd"
+                    d="M9.53 2.47a.75.75 0 0 1 0 1.06L4.81 8.25H15a6.75 6.75 0 0 1 0 13.5h-3a.75.75 0 0 1 0-1.5h3a5.25 5.25 0 1 0 0-10.5H4.81l4.72 4.72a.75.75 0 1 1-1.06 1.06l-6-6a.75.75 0 0 1 0-1.06l6-6a.75.75 0 0 1 1.06 0Z"
+                    clipRule="evenodd"
+                  />
                 </svg>
-              </IconButton>
-            )}
-            <IconButton
-              size="sm"
-              variant="primary"
-              onClick={() => handleRestore(entry.oopsWindowId, snapshot)}
-              title="Restore session"
-            >
-              <ArrowPathRoundedSquareIcon className="h-4 w-4" />
-            </IconButton>
-            <IconButton
-              size="sm"
-              variant="danger"
-              onClick={() =>
-                handleDelete(entry.oopsWindowId, snapshot.timestamp)
-              }
-              title="Delete snapshot"
-            >
-              <TrashIcon className="h-4 w-4" />
-            </IconButton>
+                Recently Deleted
+              </Button>
+              <Button
+                variant="passive"
+                size="sm"
+                onClick={loadSnapshots}
+                className="flex items-center gap-1"
+              >
+                <ArrowPathIcon className="h-4 w-4" />
+                Refresh
+              </Button>
+            </div>
           </div>
-        }
-      />
-    );
-  };
 
-  return (
-    <div className="space-y-6">
-      {/* Storage indicator */}
-      <Card className="p-4">
-        <StorageIndicator
-          percentUsed={storageStatus.percentUsed}
-          isApproachingLimit={storageStatus.isApproachingLimit}
-          warningMessage={storageStatus.warningMessage}
-          usedBytes={storageStatus.usedBytes}
-          totalBytes={storageStatus.totalBytes}
-        />
-        <div className="mt-3 flex justify-between text-xs text-gray-500">
-          <div>
-            Windows: {storageStatus.usedBytes > 0 ? windowEntries.length : 0}
-          </div>
-          <div>
-            Snapshots:{" "}
-            {storageStatus.usedBytes > 0
-              ? windowEntries.reduce(
-                  (acc, entry) => acc + entry.snapshots.length,
-                  0
-                )
-              : 0}
-          </div>
-          <div>
-            Last updated:{" "}
-            {storageStatus.usedBytes > 0 ? formatDate(Date.now()) : "Never"}
-          </div>
-        </div>
-      </Card>
+          {isLoading ? (
+            <div className="text-center py-8">
+              <Typography variant="body">Loading sessions...</Typography>
+            </div>
+          ) : (
+            <div>
+              {getFilteredEntries().length > 0 ? (
+                getFilteredEntries().map((entry) => {
+                  // Get auto-saved (non-manually saved) snapshots
+                  const autoSnapshots = entry.snapshots.filter(
+                    (snapshot) => !snapshot.saved
+                  );
 
-      {/* Auto-saved Snapshots */}
-      <div className="mb-6">
-        <div className="flex items-center justify-between mb-4">
-          <Typography variant="h2">Auto-saved Snapshots</Typography>
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={loadSnapshots}
-            disabled={isLoading}
-          >
-            {isLoading ? "Loading..." : "Refresh"}
-          </Button>
-        </div>
+                  if (autoSnapshots.length === 0) return null;
 
-        {isLoading ? (
-          <Card className="p-5 flex justify-center items-center">
-            <Typography variant="body">Loading snapshots...</Typography>
-          </Card>
-        ) : windowEntries.length === 0 ? (
-          <Card className="p-5">
-            <Typography variant="body">
-              No snapshots available. Open some windows and tabs to create
-              snapshots.
-            </Typography>
-          </Card>
-        ) : (
-          <>
-            {windowEntries.map((entry) => {
-              // Filter for auto-saved (not saved) snapshots
-              const autoSnapshots = entry.snapshots.filter(
-                (snapshot) => !snapshot.saved
-              );
-
-              if (autoSnapshots.length === 0) return null;
-
-              return (
-                <div key={`auto-${entry.oopsWindowId}`} className="mb-4">
-                  <Typography variant="h2" className="mb-2">
-                    Window ID: {entry.oopsWindowId.slice(0, 8)}...
+                  return (
+                    <div key={entry.oopsWindowId} className="mb-6">
+                      {autoSnapshots.map((snapshot) =>
+                        renderSnapshotItem(entry, snapshot, false)
+                      )}
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="text-center py-8 bg-gray-50 rounded-lg">
+                  <Typography variant="body" className="text-gray-500">
+                    {windowEntries.length > 0
+                      ? "No auto-saved sessions match the current filters"
+                      : "No auto-saved sessions available"}
                   </Typography>
-                  <Card className="p-0 overflow-hidden">
-                    {autoSnapshots.map((snapshot) =>
-                      renderSnapshotItem(entry, snapshot, false)
-                    )}
-                  </Card>
                 </div>
-              );
-            })}
-          </>
-        )}
-      </div>
+              )}
+            </div>
+          )}
+        </div>
 
-      {/* Saved Snapshots */}
-      <div>
-        <Typography variant="h2" className="mb-4">
-          Saved Sessions
-        </Typography>
+        {/* Saved sessions */}
+        <div>
+          <Typography variant="h2" className="mb-3">
+            Saved Sessions
+          </Typography>
 
-        {isLoading ? (
-          <Card className="p-5 flex justify-center items-center">
-            <Typography variant="body">Loading saved sessions...</Typography>
-          </Card>
-        ) : (
-          <>
-            {windowEntries.some((entry) =>
-              entry.snapshots.some((snapshot) => snapshot.saved)
-            ) ? (
-              windowEntries.map((entry) => {
-                // Filter for saved snapshots
-                const savedSnapshots = entry.snapshots.filter(
-                  (snapshot) => snapshot.saved
-                );
+          {isLoading ? (
+            <div className="text-center py-8">
+              <Typography variant="body">Loading sessions...</Typography>
+            </div>
+          ) : (
+            <div>
+              {getFilteredEntries().length > 0 ? (
+                getFilteredEntries().map((entry) => {
+                  // Get manually saved snapshots
+                  const savedSnapshots = entry.snapshots.filter(
+                    (snapshot) => snapshot.saved
+                  );
 
-                if (savedSnapshots.length === 0) return null;
+                  if (savedSnapshots.length === 0) return null;
 
-                return (
-                  <div key={`saved-${entry.oopsWindowId}`} className="mb-4">
-                    <Typography variant="h2" className="mb-2">
-                      Window ID: {entry.oopsWindowId.slice(0, 8)}...
-                    </Typography>
-                    <Card className="p-0 overflow-hidden bg-gray-50">
+                  return (
+                    <div key={entry.oopsWindowId} className="mb-6">
                       {savedSnapshots.map((snapshot) =>
                         renderSnapshotItem(entry, snapshot, true)
                       )}
-                    </Card>
-                  </div>
-                );
-              })
-            ) : (
-              <Card className="p-5">
-                <Typography variant="body">
-                  No saved sessions yet. Click the Save button on an auto-saved
-                  snapshot to save it.
-                </Typography>
-              </Card>
-            )}
-          </>
-        )}
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="text-center py-8 bg-gray-50 rounded-lg">
+                  <Typography variant="body" className="text-gray-500">
+                    {windowEntries.length > 0
+                      ? "No saved sessions match the current filters"
+                      : "No saved sessions available"}
+                  </Typography>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* Multi-Restore Modal */}
+      <Modal
+        isOpen={multiRestoreModal.isOpen}
+        onClose={() =>
+          setMultiRestoreModal({
+            ...multiRestoreModal,
+            isOpen: false,
+          })
+        }
+        title="Restore Multiple Sessions"
+      >
+        <div className="space-y-4">
+          <Typography variant="body">
+            You've selected {selectedSessions.length} session
+            {selectedSessions.length !== 1 ? "s" : ""} to restore. How would you
+            like to restore them?
+          </Typography>
+
+          <div className="space-y-3">
+            <div
+              className="flex items-start gap-2 p-3 border rounded-md hover:bg-gray-50 cursor-pointer"
+              onClick={() =>
+                setMultiRestoreModal({
+                  ...multiRestoreModal,
+                  combineIntoOneWindow: false,
+                })
+              }
+            >
+              <input
+                type="radio"
+                id="separate-windows"
+                checked={!multiRestoreModal.combineIntoOneWindow}
+                onChange={() =>
+                  setMultiRestoreModal({
+                    ...multiRestoreModal,
+                    combineIntoOneWindow: false,
+                  })
+                }
+                className="mt-1"
+              />
+              <div>
+                <label
+                  htmlFor="separate-windows"
+                  className="font-medium block mb-1 cursor-pointer"
+                >
+                  Restore in separate windows
+                </label>
+                <p className="text-sm text-gray-600">
+                  Each session will be restored in its own window, preserving
+                  the original layout of each.
+                </p>
+              </div>
+            </div>
+
+            <div
+              className="flex items-start gap-2 p-3 border rounded-md hover:bg-gray-50 cursor-pointer"
+              onClick={() =>
+                setMultiRestoreModal({
+                  ...multiRestoreModal,
+                  combineIntoOneWindow: true,
+                })
+              }
+            >
+              <input
+                type="radio"
+                id="combine-windows"
+                checked={multiRestoreModal.combineIntoOneWindow}
+                onChange={() =>
+                  setMultiRestoreModal({
+                    ...multiRestoreModal,
+                    combineIntoOneWindow: true,
+                  })
+                }
+                className="mt-1"
+              />
+              <div>
+                <label
+                  htmlFor="combine-windows"
+                  className="font-medium block mb-1 cursor-pointer"
+                >
+                  Combine into one window
+                </label>
+                <p className="text-sm text-gray-600">
+                  All tabs from the selected sessions will be combined into a
+                  single new window.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end pt-2 gap-2">
+            <Button
+              variant="passive"
+              size="sm"
+              onClick={() =>
+                setMultiRestoreModal({
+                  ...multiRestoreModal,
+                  isOpen: false,
+                })
+              }
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() =>
+                handleMultiRestore(multiRestoreModal.combineIntoOneWindow)
+              }
+            >
+              Restore Now
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Tag Editor Modal */}
+      <Modal
+        isOpen={tagEditorState.isOpen}
+        onClose={() => setTagEditorState({ ...tagEditorState, isOpen: false })}
+        title="Edit Tags"
+      >
+        <div className="space-y-4">
+          <TagSelector
+            availableTags={allTags}
+            selectedTags={tagEditorState.selectedTags}
+            onTagToggle={(tagId) => {
+              const { windowId, timestamp } = tagEditorState;
+              handleTagToggle(windowId, timestamp, tagId);
+
+              // Update the local state immediately for better UX
+              setTagEditorState((prev) => {
+                const selectedTags = prev.selectedTags.includes(tagId)
+                  ? prev.selectedTags.filter((id) => id !== tagId)
+                  : [...prev.selectedTags, tagId];
+
+                return { ...prev, selectedTags };
+              });
+            }}
+            onCreateTag={handleCreateTag}
+          />
+          <div className="flex justify-end pt-2">
+            <Button
+              variant="passive"
+              size="sm"
+              onClick={() =>
+                setTagEditorState({ ...tagEditorState, isOpen: false })
+              }
+            >
+              Done
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Confirmation Dialog */}
       <ConfirmationDialog
         isOpen={confirmDialog.isOpen}
-        onClose={closeConfirmDialog}
-        onConfirm={confirmDelete}
+        onClose={() =>
+          setConfirmDialog({ isOpen: false, windowId: "", timestamp: 0 })
+        }
+        onConfirm={() =>
+          handleDelete(confirmDialog.windowId, confirmDialog.timestamp)
+        }
         title="Delete Snapshot"
         message="Are you sure you want to delete this snapshot? This action cannot be undone."
       />
+
+      {/* Undo Notification */}
+      {undoState.show && (
+        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-4 py-3 rounded-lg shadow-lg flex items-center space-x-3 z-50 min-w-[300px]">
+          <div className="flex-grow">
+            <p>Deleted "{undoState.snapshotName}"</p>
+            <p className="text-sm text-gray-300">
+              This will be permanent after 30 seconds
+            </p>
+          </div>
+          <button
+            onClick={handleUndo}
+            className="bg-white text-gray-800 px-3 py-1 rounded-md text-sm font-medium hover:bg-opacity-90"
+          >
+            Undo
+          </button>
+        </div>
+      )}
+
+      {/* Undo History Modal */}
+      <Modal
+        isOpen={undoHistoryModal.isOpen}
+        onClose={() =>
+          setUndoHistoryModal((prev) => ({ ...prev, isOpen: false }))
+        }
+        title="Recently Deleted Sessions"
+      >
+        <div className="space-y-4">
+          {undoHistoryModal.isLoading ? (
+            <div className="py-8 text-center">
+              <Typography variant="body">
+                Loading deleted sessions...
+              </Typography>
+            </div>
+          ) : undoHistoryModal.items.length === 0 ? (
+            <div className="py-8 text-center">
+              <Typography variant="body">
+                No recently deleted sessions available to restore
+              </Typography>
+              <p className="text-sm text-gray-500 mt-2">
+                Deleted sessions can be recovered for 30 seconds after deletion
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-sm text-gray-600">
+                These sessions were recently deleted and can be recovered. They
+                will automatically expire 30 seconds after deletion.
+              </p>
+
+              {undoHistoryModal.items.map((item) => {
+                const timeLeft = Math.max(
+                  0,
+                  Math.floor((item.expiresAt - Date.now()) / 1000)
+                );
+                const snapshotName =
+                  item.snapshot.customName || formatSnapshotName(item.snapshot);
+
+                return (
+                  <div
+                    key={`${item.oopsWindowId}-${item.snapshot.timestamp}`}
+                    className="border rounded-md p-3 bg-gray-50"
+                  >
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <p className="font-medium">{snapshotName}</p>
+                        <p className="text-sm text-gray-500">
+                          {item.snapshot.tabs.length} tab
+                          {item.snapshot.tabs.length !== 1 ? "s" : ""} • Expires
+                          in {timeLeft} second{timeLeft !== 1 ? "s" : ""}
+                        </p>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="primary"
+                        onClick={async () => {
+                          await undoDelete(
+                            item.oopsWindowId,
+                            item.snapshot.timestamp
+                          );
+                          await loadSnapshots();
+
+                          // Refresh undo history
+                          loadUndoHistory();
+                        }}
+                      >
+                        Restore
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </Modal>
     </div>
   );
 };
@@ -1158,7 +2101,8 @@ const DebugPanel: React.FC = () => {
               </div>
             </div>
             <div className="text-xs text-gray-500">
-              Last updated: {formatDate(storageStats.lastUpdate)}
+              Last updated:{" "}
+              {formatDateTime(storageStats.lastUpdate, navigator.language)}
             </div>
             <Button variant="passive" size="sm" onClick={loadStorageStats}>
               Refresh Storage Stats

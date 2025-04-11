@@ -8,6 +8,8 @@ export * from "./snapshotManager";
 export * from "./restoreManager";
 export * from "./testingUtils";
 export * from "./browserAPI";
+export * from "./tagManager";
+export * from "./dateUtils";
 
 // Add debounce utility
 

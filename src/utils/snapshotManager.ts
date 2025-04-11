@@ -10,6 +10,7 @@ import browser, { supportsTabGroups } from "./browserAPI";
 const SNAPSHOTS_KEY = "oopsSnapshots";
 const CONFIG_KEY = "oopsConfig";
 const STORAGE_STATS_KEY = "oopsStorageStats";
+const DELETE_UNDO_BUFFER_KEY = "oopsDeleteUndoBuffer";
 const MAX_AUTO_SNAPSHOTS = 5; // Maximum auto-snapshots per window
 const DEFAULT_STORAGE_QUOTA = 5 * 1024 * 1024; // 5MB default quota
 
@@ -77,11 +78,23 @@ export interface WindowSnapshot {
   groups: TabGroupData[];
   saved?: boolean; // Flag to indicate if this is a manually saved snapshot
   customName?: string; // Custom name for the snapshot when saved
+  tags?: string[]; // Array of tag strings for the snapshot
+  starred?: boolean; // Flag to indicate if this snapshot is starred/favorite
 }
 
 export interface WindowEntry {
   oopsWindowId: string;
   snapshots: WindowSnapshot[];
+}
+
+/**
+ * Structure for storing deleted snapshots that can be restored
+ */
+export interface DeletedSnapshot {
+  oopsWindowId: string;
+  snapshot: WindowSnapshot;
+  deletedAt: number;
+  expiresAt: number;
 }
 
 /**
@@ -623,5 +636,309 @@ export const checkStorageLimits = async (): Promise<{
   } catch (err) {
     console.error("Error checking storage limits:", err);
     return { isApproachingLimit: false, percentUsed: 0 };
+  }
+};
+
+/**
+ * Star/favorite a snapshot
+ * @param oopsWindowId Window ID containing the snapshot
+ * @param timestamp Timestamp of the snapshot
+ * @param isStarred Whether to star or unstar
+ * @returns Promise resolving to true if successful, false otherwise
+ */
+export const starSnapshot = async (
+  oopsWindowId: string,
+  timestamp: number,
+  isStarred: boolean = true
+): Promise<boolean> => {
+  try {
+    const entries = await getAllSnapshots();
+    const windowIndex = entries.findIndex(
+      (entry) => entry.oopsWindowId === oopsWindowId
+    );
+
+    if (windowIndex === -1) {
+      return false;
+    }
+
+    const snapshotIndex = entries[windowIndex].snapshots.findIndex(
+      (snapshot) => snapshot.timestamp === timestamp
+    );
+
+    if (snapshotIndex === -1) {
+      return false;
+    }
+
+    // If starring, ensure it's also saved
+    if (isStarred && !entries[windowIndex].snapshots[snapshotIndex].saved) {
+      entries[windowIndex].snapshots[snapshotIndex].saved = true;
+    }
+
+    // Update starred status
+    entries[windowIndex].snapshots[snapshotIndex].starred = isStarred;
+
+    // Save to storage
+    await saveAllSnapshots(entries);
+    return true;
+  } catch (err) {
+    console.error("Error starring snapshot:", err);
+    return false;
+  }
+};
+
+/**
+ * Get all starred snapshots
+ * @returns Promise resolving to array of window entries containing only starred snapshots
+ */
+export const getStarredSnapshots = async (): Promise<WindowEntry[]> => {
+  try {
+    const entries = await getAllSnapshots();
+
+    // Filter to only include entries with starred snapshots
+    return entries
+      .map((entry) => {
+        const starredSnapshots = entry.snapshots.filter(
+          (snapshot) => snapshot.starred
+        );
+
+        if (starredSnapshots.length === 0) {
+          return null;
+        }
+
+        return {
+          oopsWindowId: entry.oopsWindowId,
+          snapshots: starredSnapshots,
+        };
+      })
+      .filter((entry): entry is WindowEntry => entry !== null);
+  } catch (err) {
+    console.error("Error getting starred snapshots:", err);
+    return [];
+  }
+};
+
+/**
+ * Check if a snapshot is starred
+ * @param oopsWindowId Window ID containing the snapshot
+ * @param timestamp Timestamp of the snapshot
+ * @returns Promise resolving to true if starred, false otherwise
+ */
+export const isSnapshotStarred = async (
+  oopsWindowId: string,
+  timestamp: number
+): Promise<boolean> => {
+  try {
+    const entries = await getAllSnapshots();
+    const windowEntry = entries.find(
+      (entry) => entry.oopsWindowId === oopsWindowId
+    );
+
+    if (!windowEntry) {
+      return false;
+    }
+
+    const snapshot = windowEntry.snapshots.find(
+      (snapshot) => snapshot.timestamp === timestamp
+    );
+
+    return !!snapshot?.starred;
+  } catch (err) {
+    console.error("Error checking if snapshot is starred:", err);
+    return false;
+  }
+};
+
+/**
+ * Delete a snapshot and add it to the undo buffer
+ * @param oopsWindowId Window ID containing the snapshot
+ * @param timestamp Timestamp of the snapshot
+ * @param undoTimeoutMs How long the undo option should be available (ms)
+ * @returns Promise resolving to true if deletion was successful
+ */
+export const deleteSnapshotWithUndo = async (
+  oopsWindowId: string,
+  timestamp: number,
+  undoTimeoutMs: number = 30000 // Default: 30 seconds
+): Promise<boolean> => {
+  try {
+    // Get all snapshots
+    const entries = await getAllSnapshots();
+    const windowIndex = entries.findIndex(
+      (entry) => entry.oopsWindowId === oopsWindowId
+    );
+
+    if (windowIndex === -1) {
+      return false;
+    }
+
+    // Find the snapshot
+    const snapshotIndex = entries[windowIndex].snapshots.findIndex(
+      (snapshot) => snapshot.timestamp === timestamp
+    );
+
+    if (snapshotIndex === -1) {
+      return false;
+    }
+
+    // Store the snapshot in the undo buffer before deleting
+    const snapshot = entries[windowIndex].snapshots[snapshotIndex];
+    await addToUndoBuffer(oopsWindowId, snapshot, undoTimeoutMs);
+
+    // Remove the snapshot from the list
+    entries[windowIndex].snapshots.splice(snapshotIndex, 1);
+
+    // If no snapshots left for this window, remove the whole entry
+    if (entries[windowIndex].snapshots.length === 0) {
+      entries.splice(windowIndex, 1);
+    }
+
+    // Save updated entries
+    await saveAllSnapshots(entries);
+
+    // Return success
+    return true;
+  } catch (err) {
+    console.error("Error deleting snapshot with undo:", err);
+    return false;
+  }
+};
+
+/**
+ * Add a deleted snapshot to the undo buffer
+ * @param oopsWindowId Window ID the snapshot belonged to
+ * @param snapshot The snapshot that was deleted
+ * @param timeoutMs How long until the undo option expires
+ */
+export const addToUndoBuffer = async (
+  oopsWindowId: string,
+  snapshot: WindowSnapshot,
+  timeoutMs: number
+): Promise<void> => {
+  try {
+    // Get current undo buffer
+    const result = await browser.storage.local.get([DELETE_UNDO_BUFFER_KEY]);
+    const undoBuffer: DeletedSnapshot[] = Array.isArray(
+      result[DELETE_UNDO_BUFFER_KEY]
+    )
+      ? result[DELETE_UNDO_BUFFER_KEY]
+      : [];
+
+    // Calculate expiration time
+    const now = Date.now();
+    const expiresAt = now + timeoutMs;
+
+    // Add deleted snapshot to buffer
+    undoBuffer.push({
+      oopsWindowId,
+      snapshot,
+      deletedAt: now,
+      expiresAt,
+    });
+
+    // Clean up expired items in the buffer
+    const cleanBuffer = undoBuffer.filter((item) => item.expiresAt > now);
+
+    // Save updated buffer
+    await browser.storage.local.set({
+      [DELETE_UNDO_BUFFER_KEY]: cleanBuffer,
+    });
+  } catch (err) {
+    console.error("Error adding to undo buffer:", err);
+  }
+};
+
+/**
+ * Get all items in the delete undo buffer
+ * @returns Promise resolving to array of deleted snapshots
+ */
+export const getUndoBuffer = async (): Promise<DeletedSnapshot[]> => {
+  try {
+    const result = await browser.storage.local.get([DELETE_UNDO_BUFFER_KEY]);
+    const buffer: DeletedSnapshot[] = Array.isArray(
+      result[DELETE_UNDO_BUFFER_KEY]
+    )
+      ? result[DELETE_UNDO_BUFFER_KEY]
+      : [];
+
+    // Clean expired items
+    const now = Date.now();
+    const validBuffer = buffer.filter((item) => item.expiresAt > now);
+
+    // If we cleaned some expired items, update the storage
+    if (validBuffer.length !== buffer.length) {
+      await browser.storage.local.set({
+        [DELETE_UNDO_BUFFER_KEY]: validBuffer,
+      });
+    }
+
+    return validBuffer;
+  } catch (err) {
+    console.error("Error getting undo buffer:", err);
+    return [];
+  }
+};
+
+/**
+ * Restore a deleted snapshot from the undo buffer
+ * @param oopsWindowId Window ID the snapshot belonged to
+ * @param timestamp Timestamp of the snapshot
+ * @returns Promise resolving to true if restoration was successful
+ */
+export const undoDelete = async (
+  oopsWindowId: string,
+  timestamp: number
+): Promise<boolean> => {
+  try {
+    // Get the undo buffer
+    const buffer = await getUndoBuffer();
+
+    // Find the deleted snapshot
+    const deletedSnapshotIndex = buffer.findIndex(
+      (item) =>
+        item.oopsWindowId === oopsWindowId &&
+        item.snapshot.timestamp === timestamp
+    );
+
+    if (deletedSnapshotIndex === -1) {
+      return false;
+    }
+
+    // Get the deleted snapshot
+    const deletedItem = buffer[deletedSnapshotIndex];
+
+    // Get all snapshots
+    const entries = await getAllSnapshots();
+    const windowIndex = entries.findIndex(
+      (entry) => entry.oopsWindowId === oopsWindowId
+    );
+
+    // Either find or create window entry
+    if (windowIndex === -1) {
+      // Create new window entry
+      entries.push({
+        oopsWindowId,
+        snapshots: [deletedItem.snapshot],
+      });
+    } else {
+      // Add to existing window entry
+      entries[windowIndex].snapshots.push(deletedItem.snapshot);
+
+      // Sort snapshots by timestamp
+      entries[windowIndex].snapshots.sort((a, b) => b.timestamp - a.timestamp);
+    }
+
+    // Save updated entries
+    await saveAllSnapshots(entries);
+
+    // Remove from undo buffer
+    buffer.splice(deletedSnapshotIndex, 1);
+    await browser.storage.local.set({
+      [DELETE_UNDO_BUFFER_KEY]: buffer,
+    });
+
+    return true;
+  } catch (err) {
+    console.error("Error undoing delete:", err);
+    return false;
   }
 };

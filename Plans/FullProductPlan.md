@@ -6,46 +6,46 @@ _A structured implementation plan for Phase 3 of OopsTab_
 
 ## 🏷️ Session Tags / Labels
 
-- [ ] Design tag UI component with input and selection interface
-- [ ] Create tag storage schema in existing snapshot data structure
-- [ ] Implement tag creation, editing and deletion functionality
-- [ ] Add tag assignment to saved sessions
-- [ ] Create tag display component with appropriate styling
-- [ ] Implement tag color customization options
-- [ ] Add tag management in settings panel
-- [ ] Test tag persistence across browser sessions
+- [x] Design tag UI component with input and selection interface
+- [x] Create tag storage schema in existing snapshot data structure
+- [x] Implement tag creation, editing and deletion functionality
+- [x] Add tag assignment to saved sessions
+- [x] Create tag display component with appropriate styling
+- [x] Implement tag color customization options
+- [x] Add tag management in settings panel
+- [x] Test tag persistence across browser sessions
 
 ---
 
 ## ⭐ Starred/Favorite Sessions
 
-- [ ] Add star/favorite toggle to session cards
-- [ ] Update storage schema to include favorite status flag
-- [ ] Implement visual indication for starred sessions
-- [ ] Create separate view/filter for favorite sessions
-- [ ] Add protection logic to prevent auto-deletion of starred sessions
-- [ ] Implement keyboard shortcut for quick starring (e.g., Alt+S)
-- [ ] Test starred sessions persist across browser restarts
+- [x] Add star/favorite toggle to session cards
+- [x] Update storage schema to include favorite status flag
+- [x] Implement visual indication for starred sessions
+- [x] Create separate view/filter for favorite sessions
+- [x] Add protection logic to prevent auto-deletion of starred sessions
+- [x] Implement keyboard shortcut for quick starring (e.g., Alt+S)
+- [x] Test starred sessions persist across browser restarts
 
 ---
 
 ## 🔍 Search, Sort, Filter
 
-- [ ] Create search bar component with real-time filtering
-- [ ] Implement session filtering by:
-  - [ ] Tags
-  - [ ] Tab count
-  - [ ] Session name
-  - [ ] Creation date range
-- [ ] Add sorting options:
-  - [ ] Most recent first
-  - [ ] Alphabetical (A-Z)
-  - [ ] Tab count (high to low)
-  - [ ] Custom order
-- [ ] Create filter persistence across app sessions
-- [ ] Implement filter combination logic (AND/OR operations)
-- [ ] Add visual indicators for active filters
-- [ ] Ensure search performance with large session counts
+- [x] Create search bar component with real-time filtering
+- [x] Implement session filtering by:
+  - [x] Tags
+  - [x] Tab count
+  - [x] Session name
+  - [x] Creation date range
+- [x] Add sorting options:
+  - [x] Most recent first
+  - [x] Alphabetical (A-Z)
+  - [x] Tab count (high to low)
+  - [x] Custom order
+- [x] Create filter persistence across app sessions
+- [x] Implement filter combination logic (AND/OR operations)
+- [x] Add visual indicators for active filters
+- [x] Ensure search performance with large session counts
 
 ---
 
@@ -84,38 +84,38 @@ _A structured implementation plan for Phase 3 of OopsTab_
 
 ## 🔄 Multi-Session Restore
 
-- [ ] Create multi-select UI for session cards
-- [ ] Implement batch restore functionality
-- [ ] Add target window selection dialog (new/existing)
-- [ ] Create progress indicator for multi-session restoration
-- [ ] Add option to combine multiple sessions into one window
-- [ ] Implement conflict resolution for duplicate tabs
-- [ ] Add keyboard shortcuts for multi-select (Shift+click, Ctrl+click)
-- [ ] Test batch restore with various session combinations
+- [x] Create multi-select UI for session cards
+- [x] Implement batch restore functionality
+- [x] Add target window selection dialog (new/existing)
+- [x] Create progress indicator for multi-session restoration
+- [x] Add option to combine multiple sessions into one window
+- [x] Implement conflict resolution for duplicate tabs
+- [x] Add keyboard shortcuts for multi-select (Shift+click, Ctrl+click)
+- [x] Test batch restore with various session combinations
 
 ---
 
 ## ↩️ Undo Recent Delete
 
-- [ ] Design in-memory buffer for recently deleted sessions
-- [ ] Implement undo notification with action button
-- [ ] Create time-limited restore window (e.g., 30 seconds)
-- [ ] Add undo history panel in settings
-- [ ] Implement keyboard shortcut for undo (Ctrl+Z)
-- [ ] Create storage management for undo buffer
-- [ ] Test undo functionality across various deletion scenarios
+- [x] Design in-memory buffer for recently deleted sessions
+- [x] Implement undo notification with action button
+- [x] Create time-limited restore window (e.g., 30 seconds)
+- [x] Add undo history panel in settings
+- [x] Implement keyboard shortcut for undo (Ctrl+Z)
+- [x] Create storage management for undo buffer
+- [x] Test undo functionality across various deletion scenarios
 
 ---
 
 ## 🌐 Locale Formatting Support
 
-- [ ] Implement `Intl.DateTimeFormat` for all timestamps
-- [ ] Add locale detection and setting option
+- [x] Implement `Intl.DateTimeFormat` for all timestamps
+- [x] Add locale detection and setting option
 - [ ] Create translation framework for UI strings
 - [ ] Add language selection in settings
-- [ ] Implement number formatting for tab counts and sizes
+- [x] Implement number formatting for tab counts and sizes
 - [ ] Add RTL (right-to-left) support for appropriate languages
-- [ ] Test formatting with various locales and languages
+- [x] Test formatting with various locales and languages
 
 ---
 
@@ -133,28 +133,28 @@ _A structured implementation plan for Phase 3 of OopsTab_
 
 ## 🧪 Testing Milestones
 
-- [ ] Verify tag system properly categorizes and filters sessions
-- [ ] Confirm starred sessions are protected from auto-deletion
-- [ ] Test search and filter performs efficiently with 100+ sessions
+- [x] Verify tag system properly categorizes and filters sessions
+- [x] Confirm starred sessions are protected from auto-deletion
+- [x] Test search and filter performs efficiently with 100+ sessions
 - [ ] Validate cloud sync works across multiple devices
 - [ ] Verify enhanced preferences properly affect system behavior
-- [ ] Test multi-session restore accurately recreates session state
-- [ ] Confirm undo functionality reliably recovers deleted sessions
-- [ ] Verify locale formatting adapts to user's system settings
+- [x] Test multi-session restore accurately recreates session state
+- [x] Confirm undo functionality reliably recovers deleted sessions
+- [x] Verify locale formatting adapts to user's system settings
 - [ ] Test extension on all supported browsers
 
 ---
 
 ## 🏁 Phase 3 Completion Criteria
 
-- [ ] Users can categorize sessions with custom tags
-- [ ] Important sessions can be starred for protection and quick access
-- [ ] Sessions can be effectively searched, sorted, and filtered
+- [x] Users can categorize sessions with custom tags
+- [x] Important sessions can be starred for protection and quick access
+- [x] Sessions can be effectively searched, sorted, and filtered
 - [ ] Session data can be synced across devices (optional)
 - [ ] Users have comprehensive control over app behavior and appearance
-- [ ] Multiple sessions can be restored simultaneously
-- [ ] Recently deleted sessions can be recovered with undo
-- [ ] The app respects and adapts to user's locale settings
+- [x] Multiple sessions can be restored simultaneously
+- [x] Recently deleted sessions can be recovered with undo
+- [x] The app respects and adapts to user's locale settings
 - [ ] Extension works across all supported browsers with appropriate fallbacks
 
 ---
