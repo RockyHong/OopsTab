@@ -197,17 +197,6 @@ const DebugPanel: React.FC = () => {
                   {storageStats.itemCounts.windows}
                 </Typography>
               </div>
-              <div className="p-3 bg-gray-50 rounded-md">
-                <Typography variant="body" className="text-xs text-gray-500">
-                  Total Snapshots
-                </Typography>
-                <Typography variant="h2" className="text-lg">
-                  {storageStats.itemCounts.snapshots}
-                  <span className="text-sm text-gray-500 ml-1">
-                    ({storageStats.itemCounts.savedSnapshots} saved)
-                  </span>
-                </Typography>
-              </div>
             </div>
             <div className="text-xs text-gray-500">
               Last updated: {formatDate(storageStats.lastUpdate)}

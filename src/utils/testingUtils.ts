@@ -10,7 +10,29 @@ import {
   TabData,
   saveAllSnapshots,
   updateStorageStats,
+  SnapshotMap,
 } from "./snapshotManager";
+
+// Type declaration for window.oopsTab global
+declare global {
+  interface Window {
+    oopsTab?: {
+      debug?: {
+        logStorage?: () => Promise<void>;
+        clearData?: () => Promise<void>;
+        createTestWindow?: (
+          tabCount?: number,
+          useGroups?: boolean
+        ) => Promise<number | null>;
+        createBulkTestSnapshots?: (
+          count?: number,
+          windowCount?: number,
+          tabsPerSnapshot?: number
+        ) => Promise<boolean>;
+      };
+    };
+  }
+}
 
 /**
  * Log all data in storage for debugging purposes
@@ -33,13 +55,8 @@ export const logStorageState = async (): Promise<void> => {
     console.log("All Snapshots:", snapshots);
 
     // Count snapshots
-    let totalSnapshotCount = 0;
-    snapshots.forEach((entry) => {
-      totalSnapshotCount += entry.snapshots.length;
-    });
-    console.log(
-      `${snapshots.length} window entries with ${totalSnapshotCount} total snapshots`
-    );
+    const totalSnapshotCount = Object.keys(snapshots).length;
+    console.log(`${totalSnapshotCount} window snapshots stored`);
 
     // Log storage usage
     const usage = await getStorageUsage();
@@ -204,11 +221,7 @@ export const createTestWindow = async (
       }
     }
 
-    console.log(
-      `Created test window with ${tabIds.length} tabs${
-        useGroups && supportsTabGroups ? " and groups" : ""
-      }`
-    );
+    console.log(`Created test window with ${tabCount} tabs`);
     return windowId;
   } catch (err) {
     console.error("Error creating test window:", err);
@@ -217,32 +230,37 @@ export const createTestWindow = async (
 };
 
 /**
- * Add console debug actions to window for easy testing
+ * Set up debug actions on the global window object
+ * This allows for debugging via the console
  */
 export const setupDebugActions = (): void => {
-  // @ts-ignore
-  window.oopsTab = window.oopsTab || {};
-  // @ts-ignore
-  window.oopsTab.debug = {
-    logStorage: logStorageState,
-    clearData: clearAllData,
-    createTestWindow,
-  };
+  if (typeof window !== "undefined") {
+    // Create debug namespace if it doesn't exist
+    if (!window.oopsTab) {
+      window.oopsTab = {};
+    }
 
-  console.log("🔍 OopsTab debug functions available on window.oopsTab.debug:");
-  console.log("   - logStorage() - Log current storage state");
-  console.log("   - clearData() - Clear all extension data");
-  console.log(
-    "   - createTestWindow(tabCount, useGroups) - Create test window"
-  );
+    if (!window.oopsTab.debug) {
+      window.oopsTab.debug = {};
+    }
+
+    // Add debug functions
+    window.oopsTab.debug.logStorage = logStorageState;
+    window.oopsTab.debug.clearData = clearAllData;
+    window.oopsTab.debug.createTestWindow = createTestWindow;
+    window.oopsTab.debug.createBulkTestSnapshots = createBulkTestSnapshots;
+
+    console.log(
+      "OopsTab debug functions are available via window.oopsTab.debug"
+    );
+  }
 };
 
 /**
- * Create multiple test snapshots to simulate high storage usage
- * @param count Number of snapshots to create
+ * Create bulk test snapshots for stress testing
+ * @param count Number of snapshots to create total
  * @param windowCount Number of windows to distribute snapshots across
- * @param tabsPerSnapshot Number of tabs in each snapshot
- * @returns Promise resolving to true if successful
+ * @param tabsPerSnapshot Number of tabs per snapshot
  */
 export const createBulkTestSnapshots = async (
   count: number = 20,
@@ -255,56 +273,37 @@ export const createBulkTestSnapshots = async (
     );
 
     // Get all existing snapshots
-    const entries = await getAllSnapshots();
+    const snapshots = await getAllSnapshots();
 
     // Create fake window IDs if needed
     const windowIds: string[] = [];
     for (let i = 0; i < windowCount; i++) {
-      const existingWindow = entries[i];
-      if (existingWindow) {
-        windowIds.push(existingWindow.oopsWindowId);
-      } else {
-        // Create a random UUID-like ID
-        const newId = `test-window-${Date.now()}-${Math.floor(
-          Math.random() * 10000
-        )}`;
-        windowIds.push(newId);
-
-        // Add the new window to entries
-        entries.push({
-          oopsWindowId: newId,
-          snapshots: [],
-        });
-      }
+      // Create a random UUID-like ID for each test window
+      const newId = `test-window-${Date.now()}-${Math.floor(
+        Math.random() * 10000
+      )}-${i}`;
+      windowIds.push(newId);
     }
 
-    // Create snapshots and distribute them across windows
-    for (let i = 0; i < count; i++) {
-      // Pick a window ID
-      const windowIdx = i % windowCount;
-      const windowId = windowIds[windowIdx];
-
-      // Find the window entry
-      const windowEntry = entries.find((e) => e.oopsWindowId === windowId);
-      if (!windowEntry) continue;
+    // Create a snapshot for each window
+    for (let i = 0; i < windowCount; i++) {
+      const windowId = windowIds[i];
 
       // Create a test snapshot
       const snapshot: WindowSnapshot = {
         timestamp: Date.now() - i * 60000, // Space them out in time
         tabs: createTestTabs(tabsPerSnapshot),
         groups: [],
-        // Randomly make some saved
-        saved: Math.random() > 0.7,
-        customName: Math.random() > 0.7 ? `Test Session ${i}` : undefined,
+        customName: `Test Window ${i + 1}`,
       };
 
-      // Add snapshot to the window
-      windowEntry.snapshots.push(snapshot);
+      // Add snapshot to the map
+      snapshots[windowId] = snapshot;
     }
 
     // Save all snapshots
-    await saveAllSnapshots(entries);
-    console.log(`Successfully created ${count} test snapshots`);
+    await saveAllSnapshots(snapshots);
+    console.log(`Successfully created ${windowCount} test windows`);
 
     // Update storage stats
     await updateStorageStats();

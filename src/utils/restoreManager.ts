@@ -3,7 +3,7 @@
  * Handles restoring window sessions from snapshots
  */
 
-import { WindowSnapshot } from "./snapshotManager";
+import { WindowSnapshot, getWindowSnapshot } from "./snapshotManager";
 import {
   findWindowByOopsId,
   getWindowIdMap,
@@ -197,14 +197,20 @@ export const createWindowFromSnapshot = async (
 /**
  * Restore a window session from a snapshot
  * @param oopsWindowId The oopsWindowId of the window
- * @param snapshot The snapshot to restore
  * @returns Promise resolving to true if successful
  */
 export const restoreSession = async (
-  oopsWindowId: string,
-  snapshot: WindowSnapshot
+  oopsWindowId: string
 ): Promise<boolean> => {
   try {
+    // Get the snapshot for this window
+    const snapshot = await getWindowSnapshot(oopsWindowId);
+
+    if (!snapshot) {
+      console.error(`No snapshot found for window ${oopsWindowId}`);
+      return false;
+    }
+
     // Check if snapshot has valid tabs
     if (!snapshot.tabs || snapshot.tabs.length === 0) {
       console.error("Cannot restore snapshot with no tabs");

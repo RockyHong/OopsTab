@@ -45,9 +45,7 @@ const SettingsPanel: React.FC = () => {
     usedBytes: 0,
     totalBytes: DEFAULT_STORAGE_STATS.totalBytes,
     itemCounts: {
-      snapshots: 0,
       windows: 0,
-      savedSnapshots: 0,
     },
   });
   const navigate = useNavigate();
@@ -170,41 +168,26 @@ const SettingsPanel: React.FC = () => {
               totalBytes={storageStatus.totalBytes}
             />
 
-            <div className="mt-4 grid grid-cols-3 gap-4">
+            <div className="mt-4 grid grid-cols-1 gap-4">
               <div className="bg-gray-50 p-3 rounded-md text-center">
                 <div className="text-xl font-semibold text-primary">
                   {storageStatus.itemCounts.windows}
                 </div>
-                <div className="text-xs text-gray-500">Windows</div>
-              </div>
-              <div className="bg-gray-50 p-3 rounded-md text-center">
-                <div className="text-xl font-semibold text-primary">
-                  {storageStatus.itemCounts.snapshots}
-                </div>
-                <div className="text-xs text-gray-500">Total Snapshots</div>
-              </div>
-              <div className="bg-gray-50 p-3 rounded-md text-center">
-                <div className="text-xl font-semibold text-primary">
-                  {storageStatus.itemCounts.savedSnapshots}
-                </div>
-                <div className="text-xs text-gray-500">Saved Sessions</div>
+                <div className="text-xs text-gray-500">Active Windows</div>
               </div>
             </div>
 
             <div className="text-sm text-gray-600 mt-4">
               <p>
-                OopsTab stores your snapshots in browser storage, which has
-                limited space. Manage your saved sessions carefully to avoid
-                running out of space.
+                OopsTab stores your window snapshots in browser storage, which
+                has limited space. Each window keeps only its most recent state.
               </p>
               <ul className="list-disc pl-5 mt-2 text-xs text-gray-500">
                 <li>
-                  Auto-saved snapshots are automatically pruned based on your
-                  settings
+                  Each window has one snapshot which gets updated automatically
                 </li>
-                <li>Saved sessions remain until you manually delete them</li>
                 <li>
-                  If storage usage is high, consider deleting old saved sessions
+                  If storage usage is high, consider closing unused windows
                 </li>
               </ul>
             </div>
@@ -253,60 +236,6 @@ const SettingsPanel: React.FC = () => {
                   <p className="text-xs text-gray-500">
                     Time to wait after tab changes before creating an
                     auto-snapshot (1-60 seconds)
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <label
-                    htmlFor="maxSnapshotsPerWindow"
-                    className="block text-sm font-medium text-gray-700"
-                  >
-                    Max Auto-Snapshots Per Window
-                  </label>
-                  <input
-                    id="maxSnapshotsPerWindow"
-                    type="number"
-                    value={config.maxSnapshotsPerWindow}
-                    onChange={(e) =>
-                      handleInputChange(e, "maxSnapshotsPerWindow", 1, 20)
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
-                    min="1"
-                    max="20"
-                  />
-                  <p className="text-xs text-gray-500">
-                    Number of automatic snapshots to keep for each window (1-20)
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <label
-                    htmlFor="autoDeleteTTL"
-                    className="block text-sm font-medium text-gray-700"
-                  >
-                    Auto-delete Old Snapshots After (days)
-                  </label>
-                  <input
-                    id="autoDeleteTTL"
-                    type="number"
-                    value={Math.round(
-                      config.autoDeleteTTL / (24 * 60 * 60 * 1000)
-                    )}
-                    onChange={(e) =>
-                      handleInputChange(
-                        e,
-                        "autoDeleteTTL",
-                        0,
-                        90 * 24 * 60 * 60 * 1000
-                      )
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
-                    min="0"
-                    max="90"
-                  />
-                  <p className="text-xs text-gray-500">
-                    Days to keep auto-saved snapshots (0 = never delete, max 90
-                    days)
                   </p>
                 </div>
 

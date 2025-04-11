@@ -10,7 +10,6 @@ import browser, { supportsTabGroups } from "./browserAPI";
 const SNAPSHOTS_KEY = "oopsSnapshots";
 const CONFIG_KEY = "oopsConfig";
 const STORAGE_STATS_KEY = "oopsStorageStats";
-const MAX_AUTO_SNAPSHOTS = 5; // Maximum auto-snapshots per window
 const DEFAULT_STORAGE_QUOTA = 5 * 1024 * 1024; // 5MB default quota
 
 // Storage statistics interface
@@ -19,9 +18,7 @@ export interface StorageStats {
   usedBytes: number;
   lastUpdate: number;
   itemCounts: {
-    snapshots: number;
     windows: number;
-    savedSnapshots: number;
   };
 }
 
@@ -31,23 +28,17 @@ export const DEFAULT_STORAGE_STATS: StorageStats = {
   usedBytes: 0,
   lastUpdate: 0,
   itemCounts: {
-    snapshots: 0,
     windows: 0,
-    savedSnapshots: 0,
   },
 };
 
 // Default configuration
 export interface OopsConfig {
   autosaveDebounce: number; // milliseconds
-  maxSnapshotsPerWindow: number;
-  autoDeleteTTL: number; // milliseconds (0 = no auto-delete)
 }
 
 export const DEFAULT_CONFIG: OopsConfig = {
   autosaveDebounce: 5000, // 5 seconds
-  maxSnapshotsPerWindow: 5,
-  autoDeleteTTL: 7 * 24 * 60 * 60 * 1000, // 7 days
 };
 
 // Types for snapshot data
@@ -75,13 +66,12 @@ export interface WindowSnapshot {
   timestamp: number;
   tabs: TabData[];
   groups: TabGroupData[];
-  saved?: boolean; // Flag to indicate if this is a manually saved snapshot
-  customName?: string; // Custom name for the snapshot when saved
+  customName?: string; // Custom name for the snapshot
 }
 
-export interface WindowEntry {
-  oopsWindowId: string;
-  snapshots: WindowSnapshot[];
+// New simplified interface - direct mapping of oopsWindowId to snapshot
+export interface SnapshotMap {
+  [oopsWindowId: string]: WindowSnapshot;
 }
 
 /**
@@ -101,9 +91,6 @@ export const getConfig = async (): Promise<OopsConfig> => {
     return {
       autosaveDebounce:
         config.autosaveDebounce ?? DEFAULT_CONFIG.autosaveDebounce,
-      maxSnapshotsPerWindow:
-        config.maxSnapshotsPerWindow ?? DEFAULT_CONFIG.maxSnapshotsPerWindow,
-      autoDeleteTTL: config.autoDeleteTTL ?? DEFAULT_CONFIG.autoDeleteTTL,
     };
   } catch (err) {
     console.error("Error getting config:", err);
@@ -127,38 +114,25 @@ export const saveConfig = async (config: OopsConfig): Promise<void> => {
 
 /**
  * Get all snapshots from storage
- * @returns Promise resolving to all window entries
+ * @returns Promise resolving to snapshot map
  */
-export const getAllSnapshots = async (): Promise<WindowEntry[]> => {
+export const getAllSnapshots = async (): Promise<SnapshotMap> => {
   const result = await browser.storage.local.get([SNAPSHOTS_KEY]);
-  return Array.isArray(result[SNAPSHOTS_KEY]) ? result[SNAPSHOTS_KEY] : [];
+  return (result[SNAPSHOTS_KEY] as SnapshotMap) || {};
 };
 
 /**
  * Save snapshots to storage
- * @param entries Window entries to save
+ * @param snapshotMap The snapshot map to save
  */
 export const saveAllSnapshots = async (
-  entries: WindowEntry[]
+  snapshotMap: SnapshotMap
 ): Promise<void> => {
-  await browser.storage.local.set({ [SNAPSHOTS_KEY]: entries });
-  console.log("Snapshots saved:", entries);
+  await browser.storage.local.set({ [SNAPSHOTS_KEY]: snapshotMap });
+  console.log("Snapshots saved:", snapshotMap);
 
   // Update storage statistics after saving
   await updateStorageStats();
-};
-
-/**
- * Find window entry by oopsWindowId
- * @param entries The array of window entries
- * @param oopsWindowId The oopsWindowId to find
- * @returns The window entry or undefined if not found
- */
-const findWindowEntry = (
-  entries: WindowEntry[],
-  oopsWindowId: string
-): WindowEntry | undefined => {
-  return entries.find((entry) => entry.oopsWindowId === oopsWindowId);
 };
 
 /**
@@ -298,46 +272,13 @@ export const createWindowSnapshot = async (
     };
 
     // Get existing snapshots
-    const entries = await getAllSnapshots();
-    let entry = findWindowEntry(entries, oopsWindowId);
+    const snapshots = await getAllSnapshots();
 
-    if (!entry) {
-      // Create new entry for this window
-      entry = {
-        oopsWindowId,
-        snapshots: [],
-      };
-      entries.push(entry);
-    }
-
-    // Get user configuration
-    const config = await getConfig();
-    const maxSnapshots = config.maxSnapshotsPerWindow;
-
-    // Add new snapshot
-    entry.snapshots.unshift(snapshot);
-
-    // Clean up old auto-saved snapshots if we have too many
-    const autoSnapshots = entry.snapshots.filter((s) => !s.saved);
-    if (autoSnapshots.length > maxSnapshots) {
-      // Find auto snapshots to remove (keeping manually saved ones)
-      const toRemove = autoSnapshots.slice(maxSnapshots);
-      entry.snapshots = entry.snapshots.filter(
-        (s) => s.saved || !toRemove.includes(s)
-      );
-    }
-
-    // Apply TTL for auto-delete of old snapshots
-    if (config.autoDeleteTTL > 0) {
-      const cutoffTime = Date.now() - config.autoDeleteTTL;
-      // Remove old auto-saved snapshots (keeping manually saved ones)
-      entry.snapshots = entry.snapshots.filter(
-        (s) => s.saved || s.timestamp >= cutoffTime
-      );
-    }
+    // Update the snapshot for this window
+    snapshots[oopsWindowId] = snapshot;
 
     // Save back to storage
-    await saveAllSnapshots(entries);
+    await saveAllSnapshots(snapshots);
 
     console.log(
       `Created snapshot for window ${windowId} with ${tabs.length} tabs`
@@ -350,123 +291,54 @@ export const createWindowSnapshot = async (
 };
 
 /**
- * Get snapshots for a specific window by oopsWindowId
- * @param oopsWindowId The oopsWindowId to find snapshots for
- * @returns Promise resolving to an array of snapshots
+ * Get snapshot for a specific window by oopsWindowId
+ * @param oopsWindowId The oopsWindowId to find snapshot for
+ * @returns Promise resolving to the window snapshot or null if not found
  */
-export const getWindowSnapshots = async (
+export const getWindowSnapshot = async (
   oopsWindowId: string
-): Promise<WindowSnapshot[]> => {
+): Promise<WindowSnapshot | null> => {
   const allSnapshots = await getAllSnapshots();
-  const windowEntry = findWindowEntry(allSnapshots, oopsWindowId);
-  return windowEntry ? windowEntry.snapshots : [];
+  return allSnapshots[oopsWindowId] || null;
 };
 
 /**
  * Delete a snapshot for a specific window
- * @param oopsWindowId The oopsWindowId the snapshot belongs to
- * @param timestamp The timestamp of the snapshot to delete
+ * @param oopsWindowId The oopsWindowId to delete snapshot for
  * @returns Promise resolving to true if deletion was successful
  */
 export const deleteSnapshot = async (
-  oopsWindowId: string,
-  timestamp: number
+  oopsWindowId: string
 ): Promise<boolean> => {
   const allSnapshots = await getAllSnapshots();
-  const windowEntry = findWindowEntry(allSnapshots, oopsWindowId);
 
-  if (!windowEntry) return false;
+  if (!allSnapshots[oopsWindowId]) return false;
 
-  const initialLength = windowEntry.snapshots.length;
-  windowEntry.snapshots = windowEntry.snapshots.filter(
-    (snapshot) => snapshot.timestamp !== timestamp
-  );
-
-  if (windowEntry.snapshots.length === initialLength) return false;
-
+  delete allSnapshots[oopsWindowId];
   await saveAllSnapshots(allSnapshots);
-  console.log(
-    `Deleted snapshot with timestamp ${timestamp} from window ${oopsWindowId}`
-  );
+
+  console.log(`Deleted snapshot for window ${oopsWindowId}`);
   return true;
-};
-
-/**
- * Mark a snapshot as saved (promoted from auto-saved)
- * @param oopsWindowId The oopsWindowId of the window
- * @param timestamp The timestamp of the snapshot to save
- * @returns Promise resolving to true if snapshot was saved
- */
-export const saveSnapshot = async (
-  oopsWindowId: string,
-  timestamp: number
-): Promise<boolean> => {
-  try {
-    // Get all snapshots
-    const entries = await getAllSnapshots();
-
-    // Find the window entry
-    const windowEntry = entries.find(
-      (entry) => entry.oopsWindowId === oopsWindowId
-    );
-    if (!windowEntry) {
-      console.error(`No window entry found for ${oopsWindowId}`);
-      return false;
-    }
-
-    // Find and update the snapshot
-    const snapshot = windowEntry.snapshots.find(
-      (s) => s.timestamp === timestamp
-    );
-    if (!snapshot) {
-      console.error(`No snapshot found with timestamp ${timestamp}`);
-      return false;
-    }
-
-    // Mark as saved
-    snapshot.saved = true;
-
-    // Save back to storage
-    await saveAllSnapshots(entries);
-    console.log(`Snapshot ${timestamp} marked as saved`);
-    return true;
-  } catch (err) {
-    console.error("Error saving snapshot:", err);
-    return false;
-  }
 };
 
 /**
  * Rename a snapshot with a custom name
  * @param oopsWindowId The oopsWindowId of the window
- * @param timestamp The timestamp of the snapshot to rename
  * @param newName The new custom name for the snapshot
  * @returns Promise resolving to true if snapshot was renamed
  */
 export const renameSnapshot = async (
   oopsWindowId: string,
-  timestamp: number,
   newName: string
 ): Promise<boolean> => {
   try {
     // Get all snapshots
-    const entries = await getAllSnapshots();
+    const snapshots = await getAllSnapshots();
 
-    // Find the window entry
-    const windowEntry = entries.find(
-      (entry) => entry.oopsWindowId === oopsWindowId
-    );
-    if (!windowEntry) {
-      console.error(`No window entry found for ${oopsWindowId}`);
-      return false;
-    }
-
-    // Find and update the snapshot
-    const snapshot = windowEntry.snapshots.find(
-      (s) => s.timestamp === timestamp
-    );
+    // Find the snapshot
+    const snapshot = snapshots[oopsWindowId];
     if (!snapshot) {
-      console.error(`No snapshot found with timestamp ${timestamp}`);
+      console.error(`No snapshot found for ${oopsWindowId}`);
       return false;
     }
 
@@ -474,8 +346,8 @@ export const renameSnapshot = async (
     snapshot.customName = newName.trim();
 
     // Save back to storage
-    await saveAllSnapshots(entries);
-    console.log(`Snapshot ${timestamp} renamed to "${newName}"`);
+    await saveAllSnapshots(snapshots);
+    console.log(`Snapshot for ${oopsWindowId} renamed to "${newName}"`);
     return true;
   } catch (err) {
     console.error("Error renaming snapshot:", err);
@@ -513,9 +385,7 @@ export const getStorageStats = async (): Promise<StorageStats> => {
       usedBytes: stats.usedBytes || 0,
       lastUpdate: stats.lastUpdate || 0,
       itemCounts: {
-        snapshots: stats.itemCounts?.snapshots || 0,
         windows: stats.itemCounts?.windows || 0,
-        savedSnapshots: stats.itemCounts?.savedSnapshots || 0,
       },
     };
   } catch (err) {
@@ -530,25 +400,18 @@ export const getStorageStats = async (): Promise<StorageStats> => {
  */
 export const updateStorageStats = async (): Promise<StorageStats> => {
   try {
-    // Get all entries
-    const entries = await getAllSnapshots();
+    // Get all snapshots
+    const snapshots = await getAllSnapshots();
 
     // Calculate stats
     let totalSize = 0;
-    let snapshotCount = 0;
-    let savedCount = 0;
+    const windowCount = Object.keys(snapshots).length;
 
-    entries.forEach((entry) => {
-      entry.snapshots.forEach((snapshot) => {
-        const snapshotSize = calculateSnapshotSize(snapshot);
-        totalSize += snapshotSize;
-        snapshotCount++;
-
-        if (snapshot.saved) {
-          savedCount++;
-        }
-      });
-    });
+    for (const oopsWindowId in snapshots) {
+      const snapshot = snapshots[oopsWindowId];
+      const snapshotSize = calculateSnapshotSize(snapshot);
+      totalSize += snapshotSize;
+    }
 
     // Get browser storage quota if available
     let storageQuota = DEFAULT_STORAGE_QUOTA;
@@ -569,9 +432,7 @@ export const updateStorageStats = async (): Promise<StorageStats> => {
       usedBytes: totalSize,
       lastUpdate: Date.now(),
       itemCounts: {
-        snapshots: snapshotCount,
-        windows: entries.length,
-        savedSnapshots: savedCount,
+        windows: windowCount,
       },
     };
 

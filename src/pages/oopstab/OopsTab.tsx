@@ -18,11 +18,9 @@ import {
 } from "@heroicons/react/24/solid";
 import {
   getAllSnapshots,
-  WindowEntry,
   WindowSnapshot,
   restoreSession,
   deleteSnapshot,
-  saveSnapshot,
   renameSnapshot,
   getConfig,
   saveConfig,
@@ -33,6 +31,7 @@ import {
   checkStorageLimits,
   StorageStats,
   DEFAULT_STORAGE_STATS,
+  SnapshotMap,
 } from "../../utils";
 import browser from "../../utils/browserAPI";
 
@@ -122,7 +121,7 @@ const ConfirmationDialog: React.FC<{
 };
 
 const SnapshotsPanel: React.FC = () => {
-  const [windowEntries, setWindowEntries] = useState<WindowEntry[]>([]);
+  const [snapshots, setSnapshots] = useState<SnapshotMap>({});
   const [isLoading, setIsLoading] = useState(true);
   const [storageStatus, setStorageStatus] = useState({
     percentUsed: 0,
@@ -136,7 +135,6 @@ const SnapshotsPanel: React.FC = () => {
   const [confirmDialog, setConfirmDialog] = useState({
     isOpen: false,
     windowId: "",
-    timestamp: 0,
   });
 
   // Load storage status
@@ -165,8 +163,8 @@ const SnapshotsPanel: React.FC = () => {
   const loadSnapshots = async () => {
     setIsLoading(true);
     try {
-      const snapshots = await getAllSnapshots();
-      setWindowEntries(snapshots);
+      const snapshotMap = await getAllSnapshots();
+      setSnapshots(snapshotMap);
 
       // Also update storage status when loading snapshots
       await loadStorageStatus();
@@ -183,12 +181,9 @@ const SnapshotsPanel: React.FC = () => {
   }, []);
 
   // Handle snapshot restoration
-  const handleRestore = async (
-    oopsWindowId: string,
-    snapshot: WindowSnapshot
-  ) => {
+  const handleRestore = async (oopsWindowId: string) => {
     try {
-      const success = await restoreSession(oopsWindowId, snapshot);
+      const success = await restoreSession(oopsWindowId);
       if (success) {
         console.log(`Successfully restored window ${oopsWindowId}`);
       } else {
@@ -200,31 +195,26 @@ const SnapshotsPanel: React.FC = () => {
   };
 
   // Handle snapshot deletion
-  const handleDelete = async (oopsWindowId: string, timestamp: number) => {
+  const handleDelete = async (oopsWindowId: string) => {
     // Open confirmation dialog instead of using browser's confirm
     setConfirmDialog({
       isOpen: true,
       windowId: oopsWindowId,
-      timestamp,
     });
   };
 
   // Actual deletion after confirmation
   const confirmDelete = async () => {
-    const { windowId, timestamp } = confirmDialog;
+    const { windowId } = confirmDialog;
 
     try {
-      const success = await deleteSnapshot(windowId, timestamp);
+      const success = await deleteSnapshot(windowId);
       if (success) {
-        console.log(
-          `Successfully deleted snapshot ${timestamp} from window ${windowId}`
-        );
+        console.log(`Successfully deleted snapshot for window ${windowId}`);
         // Refresh the list
         loadSnapshots();
       } else {
-        console.error(
-          `Failed to delete snapshot ${timestamp} from window ${windowId}`
-        );
+        console.error(`Failed to delete snapshot for window ${windowId}`);
       }
     } catch (err) {
       console.error("Error deleting snapshot:", err);
@@ -237,29 +227,6 @@ const SnapshotsPanel: React.FC = () => {
   // Close the dialog without action
   const closeConfirmDialog = () => {
     setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
-  };
-
-  // Handle saving a snapshot (promotion from auto-saved to saved)
-  const handleSaveSnapshot = async (
-    oopsWindowId: string,
-    timestamp: number
-  ) => {
-    try {
-      const success = await saveSnapshot(oopsWindowId, timestamp);
-      if (success) {
-        console.log(
-          `Successfully saved snapshot ${timestamp} from window ${oopsWindowId}`
-        );
-        // Refresh the list
-        loadSnapshots();
-      } else {
-        console.error(
-          `Failed to save snapshot ${timestamp} from window ${oopsWindowId}`
-        );
-      }
-    } catch (err) {
-      console.error("Error saving snapshot:", err);
-    }
   };
 
   // Component for editable snapshot names
@@ -278,6 +245,17 @@ const SnapshotsPanel: React.FC = () => {
       if (snapshot.customName) return snapshot.customName;
 
       // Otherwise create one based on the first tab title and timestamp
+      // Add defensive check for tabs
+      if (
+        !snapshot.tabs ||
+        !Array.isArray(snapshot.tabs) ||
+        snapshot.tabs.length === 0
+      ) {
+        return `Window Snapshot - ${new Date(
+          snapshot.timestamp
+        ).toLocaleDateString()}`;
+      }
+
       const firstTab = snapshot.tabs[0];
       const tabTitle = firstTab
         ? firstTab.title || firstTab.url || "Unnamed"
@@ -297,11 +275,7 @@ const SnapshotsPanel: React.FC = () => {
       }
 
       try {
-        const success = await renameSnapshot(
-          oopsWindowId,
-          snapshot.timestamp,
-          name
-        );
+        const success = await renameSnapshot(oopsWindowId, name);
         if (success) {
           setIsEditing(false);
           onUpdate();
@@ -317,19 +291,6 @@ const SnapshotsPanel: React.FC = () => {
         inputRef.current.focus();
       }
     }, [isEditing]);
-
-    // Display name with edit option
-    if (!snapshot.saved) {
-      // For non-saved snapshots, just show the title
-      return (
-        <Typography
-          variant="body"
-          className="font-medium text-gray-900 truncate"
-        >
-          {snapshot.tabs.length} tab{snapshot.tabs.length !== 1 ? "s" : ""}
-        </Typography>
-      );
-    }
 
     return isEditing ? (
       <div className="flex items-center space-x-2">
@@ -417,10 +378,38 @@ const SnapshotsPanel: React.FC = () => {
 
   // Render a snapshot list item
   const renderSnapshotItem = (
-    entry: WindowEntry,
-    snapshot: WindowSnapshot,
-    isSaved: boolean
+    oopsWindowId: string,
+    snapshot: WindowSnapshot
   ) => {
+    // Defensive check to make sure snapshot.tabs exists
+    if (!snapshot || !snapshot.tabs || !Array.isArray(snapshot.tabs)) {
+      return (
+        <ListItem
+          key={`${oopsWindowId}-error`}
+          title="Error: Invalid snapshot data"
+          subtitle="This snapshot appears to be corrupted"
+          metadata={
+            snapshot?.timestamp
+              ? formatDate(snapshot.timestamp)
+              : "Unknown time"
+          }
+          icon={<DocumentDuplicateIcon className="h-5 w-5" />}
+          actions={
+            <div className="flex space-x-1">
+              <IconButton
+                size="sm"
+                variant="danger"
+                onClick={() => handleDelete(oopsWindowId)}
+                title="Delete snapshot"
+              >
+                <TrashIcon className="h-4 w-4" />
+              </IconButton>
+            </div>
+          }
+        />
+      );
+    }
+
     // Get the first few tab titles for display
     const tabTitles = snapshot.tabs
       .slice(0, 3)
@@ -456,7 +445,7 @@ const SnapshotsPanel: React.FC = () => {
         key={snapshot.timestamp}
         title={
           <EditableSnapshotName
-            oopsWindowId={entry.oopsWindowId}
+            oopsWindowId={oopsWindowId}
             snapshot={snapshot}
             onUpdate={loadSnapshots}
           />
@@ -464,33 +453,12 @@ const SnapshotsPanel: React.FC = () => {
         subtitle={subtitle}
         metadata={formatDate(snapshot.timestamp)}
         icon={icon}
-        className={isSaved ? "border-l-4 border-primary" : ""}
         actions={
           <div className="flex space-x-1">
-            {!isSaved && (
-              <IconButton
-                size="sm"
-                variant="primary"
-                onClick={() =>
-                  handleSaveSnapshot(entry.oopsWindowId, snapshot.timestamp)
-                }
-                title="Save this snapshot"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                  className="w-4 h-4"
-                >
-                  <path d="M3 3a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 3v14.25a2.25 2.25 0 0 1-2.25 2.25h-13.5A2.25 2.25 0 0 1 3 17.25V3Z" />
-                  <path d="M7.5 15.75v-6a.75.75 0 0 1 1.5 0v6a.75.75 0 0 1-1.5 0ZM15 15.75v-6a.75.75 0 0 1 1.5 0v6a.75.75 0 0 1-1.5 0Z" />
-                </svg>
-              </IconButton>
-            )}
             <IconButton
               size="sm"
               variant="primary"
-              onClick={() => handleRestore(entry.oopsWindowId, snapshot)}
+              onClick={() => handleRestore(oopsWindowId)}
               title="Restore session"
             >
               <ArrowPathRoundedSquareIcon className="h-4 w-4" />
@@ -498,9 +466,7 @@ const SnapshotsPanel: React.FC = () => {
             <IconButton
               size="sm"
               variant="danger"
-              onClick={() =>
-                handleDelete(entry.oopsWindowId, snapshot.timestamp)
-              }
+              onClick={() => handleDelete(oopsWindowId)}
               title="Delete snapshot"
             >
               <TrashIcon className="h-4 w-4" />
@@ -524,16 +490,8 @@ const SnapshotsPanel: React.FC = () => {
         />
         <div className="mt-3 flex justify-between text-xs text-gray-500">
           <div>
-            Windows: {storageStatus.usedBytes > 0 ? windowEntries.length : 0}
-          </div>
-          <div>
-            Snapshots:{" "}
-            {storageStatus.usedBytes > 0
-              ? windowEntries.reduce(
-                  (acc, entry) => acc + entry.snapshots.length,
-                  0
-                )
-              : 0}
+            Active Windows:{" "}
+            {storageStatus.usedBytes > 0 ? Object.keys(snapshots).length : 0}
           </div>
           <div>
             Last updated:{" "}
@@ -542,10 +500,10 @@ const SnapshotsPanel: React.FC = () => {
         </div>
       </Card>
 
-      {/* Auto-saved Snapshots */}
+      {/* Snapshots */}
       <div className="mb-6">
         <div className="flex items-center justify-between mb-4">
-          <Typography variant="h2">Auto-saved Snapshots</Typography>
+          <Typography variant="h2">Window Snapshots</Typography>
           <Button
             variant="primary"
             size="sm"
@@ -560,7 +518,7 @@ const SnapshotsPanel: React.FC = () => {
           <Card className="p-5 flex justify-center items-center">
             <Typography variant="body">Loading snapshots...</Typography>
           </Card>
-        ) : windowEntries.length === 0 ? (
+        ) : Object.keys(snapshots).length === 0 ? (
           <Card className="p-5">
             <Typography variant="body">
               No snapshots available. Open some windows and tabs to create
@@ -569,75 +527,43 @@ const SnapshotsPanel: React.FC = () => {
           </Card>
         ) : (
           <>
-            {windowEntries.map((entry) => {
-              // Filter for auto-saved (not saved) snapshots
-              const autoSnapshots = entry.snapshots.filter(
-                (snapshot) => !snapshot.saved
-              );
-
-              if (autoSnapshots.length === 0) return null;
+            {Object.entries(snapshots).map(([oopsWindowId, snapshot]) => {
+              // Validate snapshot has the minimum required structure
+              const isValidSnapshot =
+                snapshot && typeof snapshot === "object" && snapshot.timestamp;
 
               return (
-                <div key={`auto-${entry.oopsWindowId}`} className="mb-4">
+                <div key={oopsWindowId} className="mb-4">
                   <Typography variant="h2" className="mb-2">
-                    Window ID: {entry.oopsWindowId.slice(0, 8)}...
+                    Window ID: {oopsWindowId.slice(0, 8)}...
                   </Typography>
                   <Card className="p-0 overflow-hidden">
-                    {autoSnapshots.map((snapshot) =>
-                      renderSnapshotItem(entry, snapshot, false)
+                    {isValidSnapshot ? (
+                      renderSnapshotItem(oopsWindowId, snapshot)
+                    ) : (
+                      <ListItem
+                        key={`${oopsWindowId}-invalid`}
+                        title="Invalid Snapshot"
+                        subtitle="This snapshot is corrupted or has invalid data"
+                        icon={<DocumentDuplicateIcon className="h-5 w-5" />}
+                        actions={
+                          <div className="flex space-x-1">
+                            <IconButton
+                              size="sm"
+                              variant="danger"
+                              onClick={() => handleDelete(oopsWindowId)}
+                              title="Delete snapshot"
+                            >
+                              <TrashIcon className="h-4 w-4" />
+                            </IconButton>
+                          </div>
+                        }
+                      />
                     )}
                   </Card>
                 </div>
               );
             })}
-          </>
-        )}
-      </div>
-
-      {/* Saved Snapshots */}
-      <div>
-        <Typography variant="h2" className="mb-4">
-          Saved Sessions
-        </Typography>
-
-        {isLoading ? (
-          <Card className="p-5 flex justify-center items-center">
-            <Typography variant="body">Loading saved sessions...</Typography>
-          </Card>
-        ) : (
-          <>
-            {windowEntries.some((entry) =>
-              entry.snapshots.some((snapshot) => snapshot.saved)
-            ) ? (
-              windowEntries.map((entry) => {
-                // Filter for saved snapshots
-                const savedSnapshots = entry.snapshots.filter(
-                  (snapshot) => snapshot.saved
-                );
-
-                if (savedSnapshots.length === 0) return null;
-
-                return (
-                  <div key={`saved-${entry.oopsWindowId}`} className="mb-4">
-                    <Typography variant="h2" className="mb-2">
-                      Window ID: {entry.oopsWindowId.slice(0, 8)}...
-                    </Typography>
-                    <Card className="p-0 overflow-hidden bg-gray-50">
-                      {savedSnapshots.map((snapshot) =>
-                        renderSnapshotItem(entry, snapshot, true)
-                      )}
-                    </Card>
-                  </div>
-                );
-              })
-            ) : (
-              <Card className="p-5">
-                <Typography variant="body">
-                  No saved sessions yet. Click the Save button on an auto-saved
-                  snapshot to save it.
-                </Typography>
-              </Card>
-            )}
           </>
         )}
       </div>
