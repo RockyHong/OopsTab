@@ -23,38 +23,6 @@ export const findOpenWindow = async (
 };
 
 /**
- * Extract information from an oopstab URL fragment
- * @param url The URL with potential oopstab fragment
- * @returns Object containing the extracted displayName and faviconUrl if available
- */
-const extractInfoFromFragment = (
-  url: string
-): { displayName?: string; faviconUrl?: string } => {
-  try {
-    if (url.includes("#oopstab=")) {
-      const fragmentParts = url.split("#oopstab=")[1].split("&");
-      const displayName = fragmentParts[0]
-        ? decodeURIComponent(fragmentParts[0])
-        : undefined;
-
-      // Extract favicon URL if available
-      let faviconUrl;
-      const faviconParam = fragmentParts.find((part) =>
-        part.startsWith("favicon=")
-      );
-      if (faviconParam) {
-        faviconUrl = decodeURIComponent(faviconParam.split("favicon=")[1]);
-      }
-
-      return { displayName, faviconUrl };
-    }
-  } catch (err) {
-    console.warn("Failed to extract oopstab information from URL:", err);
-  }
-  return {};
-};
-
-/**
  * Focus an existing window
  * @param windowId The window ID to focus
  * @returns Promise resolving to true if successful
@@ -92,30 +60,12 @@ export const createWindowFromSnapshot = async (
     // Sort tabs by index to maintain original order
     const sortedTabs = [...validTabs].sort((a, b) => a.index - b.index);
 
-    // Create a new window with the first tab
+    // Create a new window with the first tab (only one that loads immediately)
     const firstTab = sortedTabs[0];
 
-    // Include hostname in URL fragment to preserve info when discarded
-    let firstTabUrl = firstTab.url;
-    try {
-      if (!firstTab.url.includes("#oopstab=")) {
-        const urlObj = new URL(firstTab.url);
-        const displayName = firstTab.title || urlObj.hostname;
-        // Add a special fragment that the browser will show when tab is discarded
-        // Include favicon if available
-        const faviconInfo = firstTab.faviconUrl
-          ? `&favicon=${encodeURIComponent(firstTab.faviconUrl)}`
-          : "";
-        firstTabUrl = `${firstTab.url}#oopstab=${encodeURIComponent(
-          displayName
-        )}${faviconInfo}`;
-      }
-    } catch (err) {
-      console.warn(`Could not enhance URL for ${firstTab.url}:`, err);
-    }
-
+    // Create the window with the first tab
     const createdWindow = await browser.windows.create({
-      url: firstTabUrl,
+      url: firstTab.url,
       focused: true,
     });
 
@@ -137,47 +87,38 @@ export const createWindowFromSnapshot = async (
       await browser.tabs.update(firstTabId, { pinned: firstTab.pinned });
     }
 
-    // Create the rest of the tabs without loading content immediately
+    // Create map to store the relationship between tab positions and actual URLs
+    const tabMapping: { id: number; targetUrl: string; index: number }[] = [];
+
+    // First tab is already created
+    if (firstTabId) {
+      tabMapping.push({
+        id: firstTabId,
+        targetUrl: firstTab.url,
+        index: firstTab.index,
+      });
+    }
+
+    // Create the rest of the tabs as blank pages initially - this prevents loading
     for (let i = 1; i < sortedTabs.length; i++) {
       const tab = sortedTabs[i];
 
-      // Include hostname in URL fragment to preserve info when discarded
-      let enhancedUrl = tab.url;
-      try {
-        if (!tab.url.includes("#oopstab=")) {
-          const urlObj = new URL(tab.url);
-          const displayName = tab.title || urlObj.hostname;
-          // Add a special fragment that the browser will show when tab is discarded
-          // Include favicon if available
-          const faviconInfo = tab.faviconUrl
-            ? `&favicon=${encodeURIComponent(tab.faviconUrl)}`
-            : "";
-          enhancedUrl = `${tab.url}#oopstab=${encodeURIComponent(
-            displayName
-          )}${faviconInfo}`;
-        }
-      } catch (err) {
-        console.warn(`Could not enhance URL for ${tab.url}:`, err);
-      }
-
       const newTab = await browser.tabs.create({
         windowId: newWindowId,
-        url: enhancedUrl,
+        url: "about:blank", // Start with blank page to prevent loading
         pinned: tab.pinned,
         index: tab.index,
         active: false,
       });
 
-      // Store the new tab ID for group creation
-      tab.id = newTab.id || 0;
-
-      // Discard the tab to prevent loading until user activates it
+      // Store the new tab ID and target URL for later loading
       if (newTab.id) {
-        try {
-          await browser.tabs.discard(newTab.id);
-        } catch (err) {
-          console.warn(`Could not discard tab ${newTab.id}:`, err);
-        }
+        tab.id = newTab.id;
+        tabMapping.push({
+          id: newTab.id,
+          targetUrl: tab.url,
+          index: tab.index,
+        });
       }
     }
 
@@ -224,6 +165,61 @@ export const createWindowFromSnapshot = async (
       }
     } else if (snapshot.groups.length > 0) {
       console.log("Tab groups not supported in this browser");
+    }
+
+    // Remove the first tab from the tabMapping since it was loaded directly
+    const tabsToProcess = tabMapping.filter((tab) => tab.id !== firstTabId);
+
+    // Process tabs in batches to load metadata but avoid high memory usage
+    const batchSize = 5;
+
+    // Function to process a batch of tabs - updating URLs and then discarding
+    const processBatch = async (
+      tabs: typeof tabMapping,
+      startIndex: number
+    ) => {
+      const batchEnd = Math.min(startIndex + batchSize, tabs.length);
+      const currentBatch = tabs.slice(startIndex, batchEnd);
+
+      console.log(
+        `Processing batch ${startIndex} to ${batchEnd - 1} of ${
+          tabs.length
+        } tabs`
+      );
+
+      // Update URLs for each tab in the batch
+      for (const tab of currentBatch) {
+        try {
+          // Update the URL from blank to actual
+          await browser.tabs.update(tab.id, { url: tab.targetUrl });
+        } catch (err) {
+          console.warn(`Could not update tab ${tab.id}:`, err);
+        }
+      }
+
+      // Process each tab in the batch - wait a random time then discard
+      for (const tab of currentBatch) {
+        try {
+          // Random delay between 300-700ms to let metadata load
+          const discardDelay = 300 + Math.floor(Math.random() * 400);
+          await new Promise((resolve) => setTimeout(resolve, discardDelay));
+
+          await browser.tabs.discard(tab.id);
+        } catch (err) {
+          console.warn(`Could not discard tab ${tab.id}:`, err);
+        }
+      }
+
+      // Process next batch if there are more tabs - fully sequential
+      if (batchEnd < tabs.length) {
+        // Process next batch immediately after this one completes
+        await processBatch(tabs, batchEnd);
+      }
+    };
+
+    // Start processing tabs in batches (skip the first tab which is already loaded)
+    if (tabsToProcess.length > 0) {
+      processBatch(tabsToProcess, 0);
     }
 
     console.log(`Restored window from snapshot with ${sortedTabs.length} tabs`);
