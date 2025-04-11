@@ -497,27 +497,6 @@ const SnapshotsPanel: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Storage indicator */}
-      <Card className="p-4">
-        <StorageIndicator
-          percentUsed={storageStatus.percentUsed}
-          isApproachingLimit={storageStatus.isApproachingLimit}
-          warningMessage={storageStatus.warningMessage}
-          usedBytes={storageStatus.usedBytes}
-          totalBytes={storageStatus.totalBytes}
-        />
-        <div className="mt-3 flex justify-between text-xs text-gray-500">
-          <div>
-            Active Windows:{" "}
-            {storageStatus.usedBytes > 0 ? Object.keys(snapshots).length : 0}
-          </div>
-          <div>
-            Last updated:{" "}
-            {storageStatus.usedBytes > 0 ? formatDate(Date.now()) : "Never"}
-          </div>
-        </div>
-      </Card>
-
       {/* Snapshots */}
       <div className="mb-6">
         <div className="flex items-center justify-between mb-4">
@@ -544,45 +523,47 @@ const SnapshotsPanel: React.FC = () => {
             </Typography>
           </Card>
         ) : (
-          <>
-            {Object.entries(snapshots).map(([oopsWindowId, snapshot]) => {
-              // Validate snapshot has the minimum required structure
-              const isValidSnapshot =
-                snapshot && typeof snapshot === "object" && snapshot.timestamp;
+          <Card className="p-0 overflow-hidden">
+            {Object.entries(snapshots)
+              // Sort snapshots by timestamp, newest first
+              .sort(([, a], [, b]) => {
+                // Add checks for potentially undefined timestamps
+                const timeA = a?.timestamp ?? 0;
+                const timeB = b?.timestamp ?? 0;
+                return timeB - timeA;
+              })
+              .map(([oopsWindowId, snapshot]) => {
+                // Validate snapshot has the minimum required structure
+                const isValidSnapshot =
+                  snapshot &&
+                  typeof snapshot === "object" &&
+                  snapshot.timestamp;
 
-              return (
-                <div key={oopsWindowId} className="mb-4">
-                  <Typography variant="h2" className="mb-2">
-                    Window ID: {oopsWindowId.slice(0, 8)}...
-                  </Typography>
-                  <Card className="p-0 overflow-hidden">
-                    {isValidSnapshot ? (
-                      renderSnapshotItem(oopsWindowId, snapshot)
-                    ) : (
-                      <ListItem
-                        key={`${oopsWindowId}-invalid`}
-                        title="Invalid Snapshot"
-                        subtitle="This snapshot is corrupted or has invalid data"
-                        icon={<DocumentDuplicateIcon className="h-5 w-5" />}
-                        actions={
-                          <div className="flex space-x-1">
-                            <IconButton
-                              size="sm"
-                              variant="danger"
-                              onClick={() => handleDelete(oopsWindowId)}
-                              title="Delete snapshot"
-                            >
-                              <TrashIcon className="h-4 w-4" />
-                            </IconButton>
-                          </div>
-                        }
-                      />
-                    )}
-                  </Card>
-                </div>
-              );
-            })}
-          </>
+                // Render the item directly or an invalid state item
+                return isValidSnapshot ? (
+                  renderSnapshotItem(oopsWindowId, snapshot)
+                ) : (
+                  <ListItem
+                    key={`${oopsWindowId}-invalid`}
+                    title="Invalid Snapshot"
+                    subtitle="This snapshot is corrupted or has invalid data"
+                    icon={<DocumentDuplicateIcon className="h-5 w-5" />}
+                    actions={
+                      <div className="flex space-x-1">
+                        <IconButton
+                          size="sm"
+                          variant="danger"
+                          onClick={() => handleDelete(oopsWindowId)}
+                          title="Delete snapshot"
+                        >
+                          <TrashIcon className="h-4 w-4" />
+                        </IconButton>
+                      </div>
+                    }
+                  />
+                );
+              })}
+          </Card>
         )}
       </div>
 
