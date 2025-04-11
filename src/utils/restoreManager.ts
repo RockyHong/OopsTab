@@ -39,6 +39,40 @@ export const focusWindow = async (windowId: number): Promise<boolean> => {
 };
 
 /**
+ * Create a middleware URL that displays tab info without loading content
+ * @param tab The tab data
+ * @returns URL to the middleware page with tab info as parameters
+ */
+const createMiddlewareUrl = (tab: any): string => {
+  const extensionUrl = browser.runtime.getURL("middleware-tab.html");
+
+  // Ensure we have valid data to pass
+  const tabTitle = tab.title || "";
+  const tabUrl = tab.url || "";
+  const tabFaviconUrl = tab.faviconUrl || "";
+
+  // Create the params object
+  const params = new URLSearchParams();
+  params.set("url", tabUrl);
+  params.set("title", tabTitle);
+
+  // Only add favicon if available
+  if (tabFaviconUrl) {
+    params.set("favicon", tabFaviconUrl);
+  }
+
+  // Create and add the tabdata JSON for future snapshot use
+  const tabData = JSON.stringify({
+    url: tabUrl,
+    title: tabTitle,
+    faviconUrl: tabFaviconUrl,
+  });
+  params.set("tabdata", tabData);
+
+  return `${extensionUrl}?${params.toString()}`;
+};
+
+/**
  * Create and populate a new window based on a snapshot
  * @param snapshot The window snapshot to restore
  * @returns Promise resolving to the new window ID if successful, null otherwise
@@ -60,12 +94,13 @@ export const createWindowFromSnapshot = async (
     // Sort tabs by index to maintain original order
     const sortedTabs = [...validTabs].sort((a, b) => a.index - b.index);
 
-    // Create a new window with the first tab (only one that loads immediately)
+    // Create a new window with the first tab as middleware page
     const firstTab = sortedTabs[0];
+    const firstTabMiddlewareUrl = createMiddlewareUrl(firstTab);
 
-    // Create the window with the first tab
+    // Create the window with the first tab as middleware
     const createdWindow = await browser.windows.create({
-      url: firstTab.url,
+      url: firstTabMiddlewareUrl,
       focused: true,
     });
 
@@ -87,38 +122,22 @@ export const createWindowFromSnapshot = async (
       await browser.tabs.update(firstTabId, { pinned: firstTab.pinned });
     }
 
-    // Create map to store the relationship between tab positions and actual URLs
-    const tabMapping: { id: number; targetUrl: string; index: number }[] = [];
-
-    // First tab is already created
-    if (firstTabId) {
-      tabMapping.push({
-        id: firstTabId,
-        targetUrl: firstTab.url,
-        index: firstTab.index,
-      });
-    }
-
-    // Create the rest of the tabs as blank pages initially - this prevents loading
+    // Create the rest of the tabs using middleware pages
     for (let i = 1; i < sortedTabs.length; i++) {
       const tab = sortedTabs[i];
+      const middlewareUrl = createMiddlewareUrl(tab);
 
       const newTab = await browser.tabs.create({
         windowId: newWindowId,
-        url: "about:blank", // Start with blank page to prevent loading
+        url: middlewareUrl,
         pinned: tab.pinned,
         index: tab.index,
         active: false,
       });
 
-      // Store the new tab ID and target URL for later loading
+      // Store the new tab ID for group creation
       if (newTab.id) {
         tab.id = newTab.id;
-        tabMapping.push({
-          id: newTab.id,
-          targetUrl: tab.url,
-          index: tab.index,
-        });
       }
     }
 
@@ -165,61 +184,6 @@ export const createWindowFromSnapshot = async (
       }
     } else if (snapshot.groups.length > 0) {
       console.log("Tab groups not supported in this browser");
-    }
-
-    // Remove the first tab from the tabMapping since it was loaded directly
-    const tabsToProcess = tabMapping.filter((tab) => tab.id !== firstTabId);
-
-    // Process tabs in batches to load metadata but avoid high memory usage
-    const batchSize = 5;
-
-    // Function to process a batch of tabs - updating URLs and then discarding
-    const processBatch = async (
-      tabs: typeof tabMapping,
-      startIndex: number
-    ) => {
-      const batchEnd = Math.min(startIndex + batchSize, tabs.length);
-      const currentBatch = tabs.slice(startIndex, batchEnd);
-
-      console.log(
-        `Processing batch ${startIndex} to ${batchEnd - 1} of ${
-          tabs.length
-        } tabs`
-      );
-
-      // Update URLs for each tab in the batch
-      for (const tab of currentBatch) {
-        try {
-          // Update the URL from blank to actual
-          await browser.tabs.update(tab.id, { url: tab.targetUrl });
-        } catch (err) {
-          console.warn(`Could not update tab ${tab.id}:`, err);
-        }
-      }
-
-      // Process each tab in the batch - wait a random time then discard
-      for (const tab of currentBatch) {
-        try {
-          // Random delay between 300-700ms to let metadata load
-          const discardDelay = 300 + Math.floor(Math.random() * 400);
-          await new Promise((resolve) => setTimeout(resolve, discardDelay));
-
-          await browser.tabs.discard(tab.id);
-        } catch (err) {
-          console.warn(`Could not discard tab ${tab.id}:`, err);
-        }
-      }
-
-      // Process next batch if there are more tabs - fully sequential
-      if (batchEnd < tabs.length) {
-        // Process next batch immediately after this one completes
-        await processBatch(tabs, batchEnd);
-      }
-    };
-
-    // Start processing tabs in batches (skip the first tab which is already loaded)
-    if (tabsToProcess.length > 0) {
-      processBatch(tabsToProcess, 0);
     }
 
     console.log(`Restored window from snapshot with ${sortedTabs.length} tabs`);

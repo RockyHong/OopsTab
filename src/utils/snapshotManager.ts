@@ -76,6 +76,52 @@ const findWindowEntry = (
 };
 
 /**
+ * Check if a tab is a middleware tab and extract the original tab data if so
+ * @param tab The tab to check
+ * @returns Original tab data if it's a middleware tab, or null if not
+ */
+const extractOriginalTabData = (
+  tab: any
+): { url: string; title: string; faviconUrl?: string } | null => {
+  try {
+    // Check if this is our middleware page
+    const extensionUrl = browser.runtime.getURL("middleware-tab.html");
+    if (!tab.url || !tab.url.startsWith(extensionUrl)) {
+      return null;
+    }
+
+    // Parse URL to extract original tab data
+    const url = new URL(tab.url);
+    const params = new URLSearchParams(url.search);
+
+    // First try to get the stored TabData JSON
+    const tabDataParam = params.get("tabdata");
+    if (tabDataParam) {
+      try {
+        return JSON.parse(tabDataParam);
+      } catch (e) {
+        console.warn("Failed to parse tabdata JSON", e);
+      }
+    }
+
+    // Fallback to individual params
+    const targetUrl = params.get("url");
+    if (!targetUrl) {
+      return null;
+    }
+
+    return {
+      url: targetUrl,
+      title: params.get("title") || targetUrl,
+      faviconUrl: params.get("favicon") || undefined,
+    };
+  } catch (e) {
+    console.warn("Error checking for middleware tab", e);
+    return null;
+  }
+};
+
+/**
  * Create a new snapshot of a window
  * @param windowId Chrome window ID to snapshot
  * @returns Promise resolving to true if snapshot was created
@@ -129,15 +175,34 @@ export const createWindowSnapshot = async (
     }
 
     // Create tab data
-    const tabsData: TabData[] = tabs.map((tab) => ({
-      id: tab.id || 0,
-      url: tab.url || "",
-      title: tab.title || "",
-      pinned: tab.pinned || false,
-      groupId: tab.groupId || -1, // -1 is the standard TAB_GROUP_ID_NONE
-      index: tab.index,
-      faviconUrl: tab.favIconUrl || "",
-    }));
+    const tabsData: TabData[] = tabs.map((tab) => {
+      // Check if this is a middleware tab
+      const originalTabData = extractOriginalTabData(tab);
+
+      if (originalTabData) {
+        // Use the original tab data stored in the middleware tab
+        return {
+          id: tab.id || 0,
+          url: originalTabData.url,
+          title: originalTabData.title,
+          pinned: tab.pinned || false,
+          groupId: tab.groupId || -1, // -1 is the standard TAB_GROUP_ID_NONE
+          index: tab.index,
+          faviconUrl: originalTabData.faviconUrl || "",
+        };
+      }
+
+      // Regular tab
+      return {
+        id: tab.id || 0,
+        url: tab.url || "",
+        title: tab.title || "",
+        pinned: tab.pinned || false,
+        groupId: tab.groupId || -1, // -1 is the standard TAB_GROUP_ID_NONE
+        index: tab.index,
+        faviconUrl: tab.favIconUrl || "",
+      };
+    });
 
     // Filter out invalid tabs (missing URLs)
     const validTabs = tabsData.filter(

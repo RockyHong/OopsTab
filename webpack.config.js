@@ -11,6 +11,14 @@ const copyPatterns = [
   { 
     from: 'public/manifest.json', 
     to: 'manifest.json' 
+  },
+  {
+    from: 'src/middleware-tab.html',
+    to: 'middleware-tab.html'
+  },
+  {
+    from: 'src/middleware-tab.js',
+    to: 'middleware-tab.js'
   }
 ];
 
