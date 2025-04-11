@@ -178,6 +178,24 @@ const SnapshotsPanel: React.FC = () => {
   // Load snapshots on mount
   useEffect(() => {
     loadSnapshots();
+
+    // Set up listener for storage changes
+    const handleStorageChanges = (changes: any, areaName: string) => {
+      if (areaName === "local") {
+        // Look for changes to the oopsSnapshots key
+        if (changes.oopsSnapshots) {
+          console.log("Snapshot storage changes detected, refreshing...");
+          loadSnapshots();
+        }
+      }
+    };
+
+    browser.storage.onChanged.addListener(handleStorageChanges);
+
+    // Clean up listener on unmount
+    return () => {
+      browser.storage.onChanged.removeListener(handleStorageChanges);
+    };
   }, []);
 
   // Handle snapshot restoration
