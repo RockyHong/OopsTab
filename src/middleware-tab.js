@@ -9,40 +9,22 @@ document.addEventListener('DOMContentLoaded', function() {
   const faviconUrl = urlParams.get('favicon');
   const oopsTabData = urlParams.get('tabdata');
   
-  // Set page elements
+  // Set page title
   if (pageTitle) {
     document.title = pageTitle;
-    document.getElementById('title').textContent = pageTitle;
-  } else {
-    document.title = 'Suspended Tab';
-    document.getElementById('title').textContent = 'Suspended Tab';
   }
   
-  document.getElementById('url').textContent = targetUrl || '';
-  
-  // Set favicon for the page and the favicon image
+  // Set favicon for the page
   if (faviconUrl) {
-    // Set favicon for the page
     const linkIcon = document.createElement('link');
     linkIcon.rel = 'icon';
     linkIcon.href = faviconUrl;
     document.head.appendChild(linkIcon);
-    
-    // Set favicon image in the content
-    const faviconElement = document.getElementById('favicon');
-    faviconElement.src = faviconUrl;
-    faviconElement.onerror = function() {
-      // If favicon fails to load, hide it
-      this.style.display = 'none';
-    };
-  } else {
-    document.getElementById('favicon').style.display = 'none';
   }
   
   // Function to navigate to the actual page
   function loadTargetPage() {
     if (targetUrl) {
-      document.getElementById('loading').style.display = 'block';
       window.location.href = targetUrl;
     }
   }
