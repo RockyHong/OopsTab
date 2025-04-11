@@ -5,6 +5,12 @@
 
 import { getAllSnapshots, getWindowIdMap } from ".";
 import browser, { supportsTabGroups } from "./browserAPI";
+import {
+  WindowSnapshot,
+  TabData,
+  saveAllSnapshots,
+  updateStorageStats,
+} from "./snapshotManager";
 
 /**
  * Log all data in storage for debugging purposes
@@ -229,4 +235,135 @@ export const setupDebugActions = (): void => {
   console.log(
     "   - createTestWindow(tabCount, useGroups) - Create test window"
   );
+};
+
+/**
+ * Create multiple test snapshots to simulate high storage usage
+ * @param count Number of snapshots to create
+ * @param windowCount Number of windows to distribute snapshots across
+ * @param tabsPerSnapshot Number of tabs in each snapshot
+ * @returns Promise resolving to true if successful
+ */
+export const createBulkTestSnapshots = async (
+  count: number = 20,
+  windowCount: number = 3,
+  tabsPerSnapshot: number = 10
+): Promise<boolean> => {
+  try {
+    console.log(
+      `Creating ${count} test snapshots across ${windowCount} windows...`
+    );
+
+    // Get all existing snapshots
+    const entries = await getAllSnapshots();
+
+    // Create fake window IDs if needed
+    const windowIds: string[] = [];
+    for (let i = 0; i < windowCount; i++) {
+      const existingWindow = entries[i];
+      if (existingWindow) {
+        windowIds.push(existingWindow.oopsWindowId);
+      } else {
+        // Create a random UUID-like ID
+        const newId = `test-window-${Date.now()}-${Math.floor(
+          Math.random() * 10000
+        )}`;
+        windowIds.push(newId);
+
+        // Add the new window to entries
+        entries.push({
+          oopsWindowId: newId,
+          snapshots: [],
+        });
+      }
+    }
+
+    // Create snapshots and distribute them across windows
+    for (let i = 0; i < count; i++) {
+      // Pick a window ID
+      const windowIdx = i % windowCount;
+      const windowId = windowIds[windowIdx];
+
+      // Find the window entry
+      const windowEntry = entries.find((e) => e.oopsWindowId === windowId);
+      if (!windowEntry) continue;
+
+      // Create a test snapshot
+      const snapshot: WindowSnapshot = {
+        timestamp: Date.now() - i * 60000, // Space them out in time
+        tabs: createTestTabs(tabsPerSnapshot),
+        groups: [],
+        // Randomly make some saved
+        saved: Math.random() > 0.7,
+        customName: Math.random() > 0.7 ? `Test Session ${i}` : undefined,
+      };
+
+      // Add snapshot to the window
+      windowEntry.snapshots.push(snapshot);
+    }
+
+    // Save all snapshots
+    await saveAllSnapshots(entries);
+    console.log(`Successfully created ${count} test snapshots`);
+
+    // Update storage stats
+    await updateStorageStats();
+
+    return true;
+  } catch (err) {
+    console.error("Error creating bulk test snapshots:", err);
+    return false;
+  }
+};
+
+/**
+ * Create an array of test tabs
+ * @param count Number of tabs to create
+ * @returns Array of test tab data
+ */
+const createTestTabs = (count: number): TabData[] => {
+  const tabs: TabData[] = [];
+
+  const testUrls = [
+    "https://www.google.com",
+    "https://www.github.com",
+    "https://www.example.com",
+    "https://developer.mozilla.org",
+    "https://stackoverflow.com",
+    "https://news.ycombinator.com",
+    "https://www.reddit.com",
+    "https://www.wikipedia.org",
+    "https://www.youtube.com",
+    "https://www.twitter.com",
+  ];
+
+  const testTitles = [
+    "Google",
+    "GitHub",
+    "Example Domain",
+    "MDN Web Docs",
+    "Stack Overflow",
+    "Hacker News",
+    "Reddit",
+    "Wikipedia",
+    "YouTube",
+    "Twitter",
+  ];
+
+  for (let i = 0; i < count; i++) {
+    // Pick a random site from our list, or cycle through them
+    const siteIndex = i % testUrls.length;
+
+    tabs.push({
+      id: 1000 + i,
+      url: testUrls[siteIndex],
+      title: `${testTitles[siteIndex]} - Tab ${i + 1}`,
+      pinned: i === 0, // First tab is pinned
+      groupId: -1,
+      index: i,
+      faviconUrl: `https://www.google.com/s2/favicons?domain=${testUrls[siteIndex]}`,
+    });
+  }
+
+  return tabs;
 };

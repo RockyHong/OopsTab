@@ -2,7 +2,7 @@ import React from "react";
 import Typography from "./Typography";
 
 interface ListItemProps {
-  title: string;
+  title: React.ReactNode;
   subtitle?: string;
   metadata?: string;
   onClick?: () => void;
@@ -30,12 +30,16 @@ const ListItem: React.FC<ListItemProps> = ({
       {icon && <div className="mr-3 text-gray-500">{icon}</div>}
 
       <div className="flex-1 min-w-0">
-        <Typography
-          variant="body"
-          className="font-medium text-gray-900 truncate"
-        >
-          {title}
-        </Typography>
+        {typeof title === "string" ? (
+          <Typography
+            variant="body"
+            className="font-medium text-gray-900 truncate"
+          >
+            {title}
+          </Typography>
+        ) : (
+          title
+        )}
 
         {subtitle && (
           <Typography variant="caption" className="text-gray-500 truncate">
