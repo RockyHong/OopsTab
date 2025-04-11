@@ -15,6 +15,9 @@ import {
   TrashIcon,
   DocumentDuplicateIcon,
   ArrowPathRoundedSquareIcon,
+  CheckIcon,
+  XMarkIcon,
+  PencilIcon,
 } from "@heroicons/react/24/solid";
 import {
   getAllSnapshots,
@@ -330,18 +333,7 @@ const SnapshotsPanel: React.FC = () => {
           onClick={handleRename}
           title="Save name"
         >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="currentColor"
-            className="w-4 h-4"
-          >
-            <path
-              fillRule="evenodd"
-              d="M19.916 4.626a.75.75 0 0 1 .208 1.04l-9 13.5a.75.75 0 0 1-1.154.114l-6-6a.75.75 0 0 1 1.06-1.06l5.353 5.353 8.493-12.74a.75.75 0 0 1 1.04-.207Z"
-              clipRule="evenodd"
-            />
-          </svg>
+          <CheckIcon className="h-4 w-4" />
         </IconButton>
         <IconButton
           size="sm"
@@ -349,18 +341,7 @@ const SnapshotsPanel: React.FC = () => {
           onClick={() => setIsEditing(false)}
           title="Cancel"
         >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="currentColor"
-            className="w-4 h-4"
-          >
-            <path
-              fillRule="evenodd"
-              d="M5.47 5.47a.75.75 0 0 1 1.06 0L12 10.94l5.47-5.47a.75.75 0 1 1 1.06 1.06L13.06 12l5.47 5.47a.75.75 0 1 1-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 0 1-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 0 1 0-1.06Z"
-              clipRule="evenodd"
-            />
-          </svg>
+          <XMarkIcon className="h-4 w-4" />
         </IconButton>
       </div>
     ) : (
@@ -381,14 +362,7 @@ const SnapshotsPanel: React.FC = () => {
           title="Edit name"
           className="opacity-50 hover:opacity-100"
         >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="currentColor"
-            className="w-3 h-3"
-          >
-            <path d="M21.731 2.269a2.625 2.625 0 0 0-3.712 0l-1.157 1.157 3.712 3.712 1.157-1.157a2.625 2.625 0 0 0 0-3.712ZM19.513 8.199l-3.712-3.712-8.4 8.4a5.25 5.25 0 0 0-1.32 2.214l-.8 2.685a.75.75 0 0 0 .933.933l2.685-.8a5.25 5.25 0 0 0 2.214-1.32l8.4-8.4Z" />
-          </svg>
+          <PencilIcon className="h-3 w-3" />
         </IconButton>
       </div>
     );
