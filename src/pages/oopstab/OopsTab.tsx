@@ -4,17 +4,14 @@ import {
   Card,
   Button,
   IconButton,
-  Toggle,
   ListItem,
   Modal,
-  StorageIndicator,
 } from "../../components/ui";
 import {
-  CogIcon,
-  ArrowPathIcon,
+  Cog6ToothIcon,
   TrashIcon,
   DocumentDuplicateIcon,
-  ArrowPathRoundedSquareIcon,
+  ArrowTopRightOnSquareIcon,
   CheckIcon,
   XMarkIcon,
   PencilIcon,
@@ -25,14 +22,9 @@ import {
   restoreSession,
   deleteSnapshot,
   renameSnapshot,
-  getConfig,
-  saveConfig,
-  OopsConfig,
-  DEFAULT_CONFIG,
   getStorageStats,
   updateStorageStats,
   checkStorageLimits,
-  StorageStats,
   DEFAULT_STORAGE_STATS,
   SnapshotMap,
 } from "../../utils";
@@ -76,7 +68,7 @@ const OopsTab: React.FC = () => {
               onClick={openOptionsPage}
               aria-label="Settings"
             >
-              <CogIcon className="h-5 w-5" />
+              <Cog6ToothIcon className="h-5 w-5" />
             </IconButton>
           </div>
         </div>
@@ -453,7 +445,7 @@ const SnapshotsPanel: React.FC = () => {
               onClick={() => handleRestore(oopsWindowId)}
               title="Restore session"
             >
-              <ArrowPathRoundedSquareIcon className="h-4 w-4" />
+              <ArrowTopRightOnSquareIcon className="h-4 w-4" />
             </IconButton>
             <IconButton
               size="sm"
