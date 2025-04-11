@@ -1,12 +1,5 @@
 import React, { useState, useEffect } from "react";
-import {
-  Typography,
-  Card,
-  Button,
-  Toggle,
-  StorageIndicator,
-  IconButton,
-} from "../components/ui";
+import { Typography, Card, Button, Toggle, IconButton } from "../components/ui";
 import {
   getConfig,
   saveConfig,
@@ -16,6 +9,7 @@ import {
   updateStorageStats,
   checkStorageLimits,
   DEFAULT_STORAGE_STATS,
+  deleteAllSnapshots,
 } from "../utils";
 import {
   HashRouter as Router,
@@ -50,35 +44,47 @@ const SettingsPanel: React.FC = () => {
   });
   const navigate = useNavigate();
 
-  // Load configuration and storage status on mount
+  // Format bytes to human-readable format (KB, MB)
+  const formatBytes = (bytes: number): string => {
+    if (bytes < 1024) {
+      return `${bytes} B`;
+    } else if (bytes < 1024 * 1024) {
+      return `${(bytes / 1024).toFixed(1)} KB`;
+    } else {
+      return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    }
+  };
+
+  // Load configuration and storage status
+  const loadData = async () => {
+    setIsLoading(true);
+    try {
+      // Load config
+      const loadedConfig = await getConfig();
+      setConfig(loadedConfig);
+
+      // Update and load storage stats
+      await updateStorageStats();
+      const limits = await checkStorageLimits();
+      const stats = await getStorageStats();
+
+      setStorageStatus({
+        percentUsed: limits.percentUsed,
+        isApproachingLimit: limits.isApproachingLimit,
+        warningMessage: limits.warningMessage || "",
+        usedBytes: stats.usedBytes,
+        totalBytes: stats.totalBytes,
+        itemCounts: stats.itemCounts,
+      });
+    } catch (err) {
+      console.error("Error loading data:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Load data on mount
   useEffect(() => {
-    const loadData = async () => {
-      setIsLoading(true);
-      try {
-        // Load config
-        const loadedConfig = await getConfig();
-        setConfig(loadedConfig);
-
-        // Update and load storage stats
-        await updateStorageStats();
-        const limits = await checkStorageLimits();
-        const stats = await getStorageStats();
-
-        setStorageStatus({
-          percentUsed: limits.percentUsed,
-          isApproachingLimit: limits.isApproachingLimit,
-          warningMessage: limits.warningMessage || "",
-          usedBytes: stats.usedBytes,
-          totalBytes: stats.totalBytes,
-          itemCounts: stats.itemCounts,
-        });
-      } catch (err) {
-        console.error("Error loading data:", err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     loadData();
   }, []);
 
@@ -125,6 +131,30 @@ const SettingsPanel: React.FC = () => {
     }));
   };
 
+  // Handle deleting all snapshots
+  const handleDeleteAllSnapshots = async () => {
+    if (
+      window.confirm(
+        "Are you sure you want to delete ALL snapshots? This action cannot be undone."
+      )
+    ) {
+      setIsLoading(true);
+      setStatusMessage("");
+      try {
+        await deleteAllSnapshots();
+        setStatusMessage("All snapshots deleted successfully!");
+        // Reload storage stats after deletion
+        await loadData();
+      } catch (err) {
+        console.error("Error deleting snapshots:", err);
+        setStatusMessage("Error deleting snapshots. Please try again.");
+      } finally {
+        // Keep isLoading true until loadData finishes
+        // setIsLoading(false);
+      }
+    }
+  };
+
   return (
     <div className="p-6 max-w-3xl mx-auto space-y-6">
       <div className="flex justify-between items-center">
@@ -160,21 +190,39 @@ const SettingsPanel: React.FC = () => {
           </div>
         ) : (
           <div className="space-y-5">
-            <StorageIndicator
-              percentUsed={storageStatus.percentUsed}
-              isApproachingLimit={storageStatus.isApproachingLimit}
-              warningMessage={storageStatus.warningMessage}
-              usedBytes={storageStatus.usedBytes}
-              totalBytes={storageStatus.totalBytes}
-            />
+            <div className="mt-4 grid grid-cols-2 gap-4">
+              <div className="bg-gray-50 p-3 rounded-md text-center">
+                <div className="text-xl font-semibold text-primary">
+                  {formatBytes(storageStatus.usedBytes)}
+                </div>
+                <div className="text-xs text-gray-500">Storage Usage</div>
+              </div>
 
-            <div className="mt-4 grid grid-cols-1 gap-4">
               <div className="bg-gray-50 p-3 rounded-md text-center">
                 <div className="text-xl font-semibold text-primary">
                   {storageStatus.itemCounts.windows}
                 </div>
-                <div className="text-xs text-gray-500">Active Windows</div>
+                <div className="text-xs text-gray-500">Windows Snapshots</div>
               </div>
+            </div>
+
+            {/* Warning message if approaching limit */}
+            {storageStatus.isApproachingLimit &&
+              storageStatus.warningMessage && (
+                <div className="mt-4 p-2 rounded-md text-sm bg-yellow-100 text-yellow-800">
+                  {storageStatus.warningMessage}
+                </div>
+              )}
+
+            <div className="mt-4 flex justify-end">
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={handleDeleteAllSnapshots}
+                disabled={isLoading}
+              >
+                Delete All Snapshots
+              </Button>
             </div>
 
             <div className="text-sm text-gray-600 mt-4">
@@ -214,24 +262,33 @@ const SettingsPanel: React.FC = () => {
                     htmlFor="autosaveDebounce"
                     className="block text-sm font-medium text-gray-700"
                   >
-                    Autosave Debounce (ms)
+                    Autosave Debounce (seconds)
                   </label>
                   <div className="flex items-center">
                     <input
                       id="autosaveDebounce"
                       type="number"
-                      value={config.autosaveDebounce}
-                      onChange={(e) =>
-                        handleInputChange(e, "autosaveDebounce", 1000, 60000)
-                      }
+                      value={(config.autosaveDebounce / 1000).toFixed(1)}
+                      onChange={(e) => {
+                        const seconds = parseFloat(e.target.value);
+                        if (!isNaN(seconds)) {
+                          const milliseconds = Math.round(seconds * 1000);
+                          handleInputChange(
+                            {
+                              target: { value: milliseconds.toString() },
+                            } as React.ChangeEvent<HTMLInputElement>,
+                            "autosaveDebounce",
+                            1000,
+                            60000
+                          );
+                        }
+                      }}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
-                      min="1000"
-                      max="60000"
-                      step="1000"
+                      min="1"
+                      max="60"
+                      step="0.1"
                     />
-                    <div className="ml-2 text-sm text-gray-500">
-                      {(config.autosaveDebounce / 1000).toFixed(1)}s
-                    </div>
+                    <div className="ml-2 text-sm text-gray-500">seconds</div>
                   </div>
                   <p className="text-xs text-gray-500">
                     Time to wait after tab changes before creating an

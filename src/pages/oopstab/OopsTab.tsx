@@ -30,6 +30,26 @@ import {
 } from "../../utils";
 import browser from "../../utils/browserAPI";
 
+// Add TabData interface
+interface TabData {
+  id?: number;
+  windowId?: number;
+  title?: string;
+  url?: string;
+  favIconUrl?: string;
+  faviconUrl?: string;
+  groupId?: number;
+  index?: number;
+}
+
+// Add TabGroupData interface to match the one in utils
+interface TabGroupData {
+  id: number;
+  title?: string;
+  color?: string;
+  collapsed?: boolean;
+}
+
 // Helper to format date
 const formatDate = (timestamp: number): string => {
   const date = new Date(timestamp);
@@ -377,7 +397,6 @@ const SnapshotsPanel: React.FC = () => {
               ? formatDate(snapshot.timestamp)
               : "Unknown time"
           }
-          icon={<DocumentDuplicateIcon className="h-5 w-5" />}
           actions={
             <div className="flex space-x-1">
               <IconButton
@@ -394,49 +413,191 @@ const SnapshotsPanel: React.FC = () => {
       );
     }
 
-    // Get the first few tab titles for display
-    const tabTitles = snapshot.tabs
-      .slice(0, 3)
-      .map((tab) => tab.title || tab.url)
-      .filter(Boolean);
+    // Render the tab favicon list
+    const renderTabFavicons = () => {
+      // Get all tabs for display, limit to first 15
+      const tabsToDisplay = snapshot.tabs
+        .slice(0, 15)
+        // Sort tabs by their original index to maintain window order
+        .sort((a, b) => (a.index || 0) - (b.index || 0));
 
-    const subtitle =
-      tabTitles.length > 0
-        ? `${tabTitles[0]}${
-            tabTitles.length > 1 ? ` and ${tabTitles.length - 1} more` : ""
-          }`
-        : "No tabs";
+      const remainingCount = snapshot.tabs.length - tabsToDisplay.length;
 
-    // Get favicon for display if available (use first tab's favicon)
-    const firstTabWithFavicon = snapshot.tabs.find((tab) => tab.faviconUrl);
-    const icon = firstTabWithFavicon?.faviconUrl ? (
-      <img
-        src={firstTabWithFavicon.faviconUrl}
-        className="h-5 w-5"
-        alt="Tab favicon"
-        onError={(e) => {
-          // Fallback if favicon fails to load
-          e.currentTarget.src = "";
-          e.currentTarget.style.display = "none";
-        }}
-      />
-    ) : (
-      <DocumentDuplicateIcon className="h-5 w-5" />
-    );
+      // Create a map for quick group lookups
+      const groupMap = new Map<number, TabGroupData>();
+      if (snapshot.groups && Array.isArray(snapshot.groups)) {
+        snapshot.groups.forEach((group) => {
+          groupMap.set(group.id, group);
+        });
+      }
+
+      // Create a positional array that will preserve exact window order
+      const orderedItems: Array<{
+        type: "tab" | "group";
+        id: number;
+        index: number;
+        data:
+          | TabData
+          | { id: number; name: string; color: string; tabs: TabData[] };
+      }> = [];
+
+      // Track which groups we've already added
+      const processedGroups = new Set<number>();
+
+      // Process all tabs in their original order
+      tabsToDisplay.forEach((tab: TabData) => {
+        const tabIndex = tab.index || 0;
+
+        if (tab.groupId && tab.groupId !== -1) {
+          // This is a grouped tab
+
+          // If we haven't added this group yet, add it at this position
+          if (!processedGroups.has(tab.groupId)) {
+            processedGroups.add(tab.groupId);
+
+            // Look up group info
+            const groupInfo = groupMap.get(tab.groupId);
+
+            // Create a new group with this tab
+            const groupData = {
+              id: tab.groupId,
+              name: groupInfo?.title || `Group ${tab.groupId}`,
+              color: groupInfo?.color || "#808080",
+              tabs: [tab],
+            };
+
+            // Add group at the current tab's position
+            orderedItems.push({
+              type: "group",
+              id: tab.groupId,
+              index: tabIndex,
+              data: groupData,
+            });
+          } else {
+            // Find the existing group and add this tab to it
+            const existingGroup = orderedItems.find(
+              (item) => item.type === "group" && item.id === tab.groupId
+            );
+
+            if (existingGroup && existingGroup.type === "group") {
+              (existingGroup.data as { tabs: TabData[] }).tabs.push(tab);
+            }
+          }
+        } else {
+          // This is an ungrouped tab, add it directly
+          orderedItems.push({
+            type: "tab",
+            id: tab.id || tabIndex,
+            index: tabIndex,
+            data: tab,
+          });
+        }
+      });
+
+      // Sort the items by their index position
+      orderedItems.sort((a, b) => a.index - b.index);
+
+      return (
+        <div className="flex flex-wrap items-center gap-2 mt-1">
+          {/* Render items in window order */}
+          {orderedItems.map((item) => {
+            if (item.type === "group") {
+              const group = item.data as {
+                id: number;
+                name: string;
+                color: string;
+                tabs: TabData[];
+              };
+              return (
+                <div
+                  key={`group-${group.id}`}
+                  className="flex items-center gap-1"
+                >
+                  <span
+                    className="text-xs px-1.5 py-0.5 rounded text-white"
+                    style={{ backgroundColor: group.color }}
+                  >
+                    {group.name}
+                  </span>
+                  <div className="flex -space-x-1">
+                    {group.tabs
+                      .sort((a, b) => (a.index || 0) - (b.index || 0)) // Sort tabs within group by index
+                      .slice(0, 1)
+                      .map((tab: TabData, idx: number) => (
+                        <div
+                          key={`group-tab-${group.id}-${idx}`}
+                          className="h-5 w-5 rounded-full border border-white overflow-hidden bg-gray-100 flex items-center justify-center"
+                          title={tab.title || tab.url || ""}
+                        >
+                          {tab.faviconUrl ? (
+                            <img
+                              src={tab.faviconUrl}
+                              className="h-4 w-4"
+                              alt=""
+                              onError={(e) => {
+                                e.currentTarget.src = "";
+                                e.currentTarget.style.display = "none";
+                              }}
+                            />
+                          ) : (
+                            <div className="h-4 w-4 bg-gray-200 rounded-sm"></div>
+                          )}
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              );
+            } else {
+              const tab = item.data as TabData;
+              return (
+                <div
+                  key={`tab-${tab.id || tab.index}`}
+                  className="h-5 w-5 rounded-full border border-white overflow-hidden bg-gray-100 flex items-center justify-center"
+                  title={tab.title || tab.url || ""}
+                >
+                  {tab.faviconUrl ? (
+                    <img
+                      src={tab.faviconUrl}
+                      className="h-4 w-4"
+                      alt=""
+                      onError={(e) => {
+                        e.currentTarget.src = "";
+                        e.currentTarget.style.display = "none";
+                      }}
+                    />
+                  ) : (
+                    <div className="h-4 w-4 bg-gray-200 rounded-sm"></div>
+                  )}
+                </div>
+              );
+            }
+          })}
+
+          {/* Show remaining count if needed */}
+          {remainingCount > 0 && (
+            <span className="text-xs text-gray-500">
+              and {remainingCount} more
+            </span>
+          )}
+        </div>
+      );
+    };
 
     return (
       <ListItem
         key={snapshot.timestamp}
         title={
-          <EditableSnapshotName
-            oopsWindowId={oopsWindowId}
-            snapshot={snapshot}
-            onUpdate={loadSnapshots}
-          />
+          <div>
+            <EditableSnapshotName
+              oopsWindowId={oopsWindowId}
+              snapshot={snapshot}
+              onUpdate={loadSnapshots}
+            />
+            {renderTabFavicons()}
+          </div>
         }
-        subtitle={subtitle}
+        subtitle=""
         metadata={formatDate(snapshot.timestamp)}
-        icon={icon}
         actions={
           <div className="flex space-x-1">
             <IconButton

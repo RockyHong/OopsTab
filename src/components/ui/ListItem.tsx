@@ -22,7 +22,7 @@ const ListItem: React.FC<ListItemProps> = ({
 }) => {
   return (
     <div
-      className={`flex items-center p-3 border-b border-gray-100 hover:bg-gray-50 ${
+      className={`flex items-center p-2 border-b border-gray-100 last:border-b-0 ${
         onClick ? "cursor-pointer" : ""
       } ${className}`}
       onClick={onClick}

@@ -234,6 +234,31 @@ export const createWindowSnapshot = async (
       }
     }
 
+    // Prevent snapshotting single-tab windows unless they have groups
+    if (tabs.length === 1 && groups.length === 0) {
+      console.log(
+        `Skipping snapshot for window ${windowId} - only one tab and no groups`
+      );
+      // Also attempt to delete any existing snapshot for this window
+      // in case it previously had more tabs/groups
+      try {
+        const snapshots = await getAllSnapshots();
+        if (snapshots[oopsWindowId]) {
+          delete snapshots[oopsWindowId];
+          await saveAllSnapshots(snapshots);
+          console.log(
+            `Deleted existing snapshot for single-tab window ${windowId}`
+          );
+        }
+      } catch (delErr) {
+        console.error(
+          `Error trying to delete existing snapshot for window ${windowId}:`,
+          delErr
+        );
+      }
+      return false; // Do not proceed to create/save the snapshot
+    }
+
     // Create tab data
     const tabsData: TabData[] = tabs.map((tab) => {
       // Check if this is a middleware tab
@@ -319,6 +344,21 @@ export const deleteSnapshot = async (
 
   console.log(`Deleted snapshot for window ${oopsWindowId}`);
   return true;
+};
+
+/**
+ * Delete all snapshots from storage
+ * @returns Promise resolving to true if deletion was successful
+ */
+export const deleteAllSnapshots = async (): Promise<boolean> => {
+  try {
+    await saveAllSnapshots({}); // Save an empty map
+    console.log("Deleted all snapshots");
+    return true;
+  } catch (err) {
+    console.error("Error deleting all snapshots:", err);
+    return false;
+  }
 };
 
 /**

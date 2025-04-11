@@ -6,4 +6,3 @@ export { default as Spinner } from "./Spinner";
 export { default as Toggle } from "./Toggle";
 export { default as Typography } from "./Typography";
 export { default as ListItem } from "./ListItem";
-export { default as StorageIndicator } from "./StorageIndicator";

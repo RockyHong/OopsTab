@@ -7,6 +7,8 @@ import {
   initializeWindowTracking,
   registerWindow,
   createWindowSnapshot,
+  deleteSnapshot,
+  getOopsWindowId,
   debounce,
 } from "../utils";
 
@@ -73,6 +75,18 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   }
 });
 
+// Listen for tabs being attached to a window (e.g., drag-and-drop)
+chrome.tabs.onAttached.addListener((tabId, attachInfo) => {
+  console.log(`Tab ${tabId} attached to window ${attachInfo.newWindowId}`);
+  debouncedSnapshotCreation(attachInfo.newWindowId);
+});
+
+// Listen for tabs being detached from a window (e.g., drag-and-drop)
+chrome.tabs.onDetached.addListener((tabId, detachInfo) => {
+  console.log(`Tab ${tabId} detached from window ${detachInfo.oldWindowId}`);
+  debouncedSnapshotCreation(detachInfo.oldWindowId);
+});
+
 // Handle tab groups if supported
 if (chrome.tabGroups) {
   chrome.tabGroups.onUpdated.addListener((tabGroup) => {
@@ -84,11 +98,16 @@ if (chrome.tabGroups) {
 // Handle window closure
 chrome.windows.onRemoved.addListener((windowId) => {
   console.log(`Window closed: ${windowId}`);
-  // Create one last snapshot before the window is gone
+  // Create one last snapshot before the window is gone.
+  // The createWindowSnapshot function itself will handle
+  // whether to save, skip, or delete based on tab/group count.
   createWindowSnapshot(windowId)
     .then((success) => {
+      // Logging is handled within createWindowSnapshot
       if (success) {
-        console.log(`Final snapshot created for closed window ${windowId}`);
+        console.log(
+          `Final snapshot attempt processed for closed window ${windowId}`
+        );
       }
     })
     .catch((err) =>
