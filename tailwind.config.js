@@ -33,10 +33,47 @@ module.exports = {
           light: '#F87171',
           dark: '#DC2626',
         },
+        // Text colors
+        text: {
+          primary: '#1F2937',   // Gray-800
+          secondary: '#4B5563', // Gray-600
+          disabled: '#9CA3AF',  // Gray-400
+          inverse: '#FFFFFF',   // White text on dark backgrounds
+        },
+        // Background utility colors
+        background: {
+          DEFAULT: '#FFFFFF',
+          alt: '#F9FAFB',      // Gray-50
+          subtle: '#F3F4F6',   // Gray-100
+        },
       },
       fontFamily: {
         heading: ['Outfit', 'sans-serif'],
         body: ['Roboto', 'sans-serif'],
+      },
+      fontSize: {
+        // Typography scale
+        'xs': ['0.75rem', { lineHeight: '1rem' }],       // 12px
+        'sm': ['0.875rem', { lineHeight: '1.25rem' }],   // 14px
+        'base': ['1rem', { lineHeight: '1.5rem' }],      // 16px
+        'lg': ['1.125rem', { lineHeight: '1.75rem' }],   // 18px
+        'xl': ['1.25rem', { lineHeight: '1.75rem' }],    // 20px
+        '2xl': ['1.5rem', { lineHeight: '2rem' }],       // 24px
+        '3xl': ['1.875rem', { lineHeight: '2.25rem' }],  // 30px
+        '4xl': ['2.25rem', { lineHeight: '2.5rem' }],    // 36px
+        '5xl': ['3rem', { lineHeight: '1' }],            // 48px
+        
+        // Semantic typography sizes
+        'heading-1': ['2.25rem', { lineHeight: '2.5rem', fontWeight: '700' }],
+        'heading-2': ['1.875rem', { lineHeight: '2.25rem', fontWeight: '700' }],
+        'heading-3': ['1.5rem', { lineHeight: '2rem', fontWeight: '600' }],
+        'heading-4': ['1.25rem', { lineHeight: '1.75rem', fontWeight: '600' }],
+        'heading-5': ['1.125rem', { lineHeight: '1.75rem', fontWeight: '600' }],
+        'heading-6': ['1rem', { lineHeight: '1.5rem', fontWeight: '600' }],
+        'body-lg': ['1.125rem', { lineHeight: '1.75rem' }],
+        'body': ['1rem', { lineHeight: '1.5rem' }],
+        'body-sm': ['0.875rem', { lineHeight: '1.25rem' }],
+        'caption': ['0.75rem', { lineHeight: '1rem' }],
       },
       boxShadow: {
         sm: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',

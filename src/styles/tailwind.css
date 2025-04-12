@@ -3,11 +3,118 @@
 @tailwind utilities;
 
 @layer base {
+  /* Base element styles */
   html {
-    font-family: 'Roboto', sans-serif;
+    @apply font-body text-text-primary antialiased;
   }
-  h1, h2, h3, h4, h5, h6 {
-    font-family: 'Outfit', sans-serif;
+  
+  body {
+    @apply bg-background text-text-primary;
+  }
+  
+  /* Heading typography styles */
+  h1 {
+    @apply font-heading text-heading-1;
+  }
+  
+  h2 {
+    @apply font-heading text-heading-2;
+  }
+  
+  h3 {
+    @apply font-heading text-heading-3;
+  }
+  
+  h4 {
+    @apply font-heading text-heading-4;
+  }
+  
+  h5 {
+    @apply font-heading text-heading-5;
+  }
+  
+  h6 {
+    @apply font-heading text-heading-6;
+  }
+  
+  /* Link styles */
+  a {
+    @apply text-primary transition-colors hover:text-primary-dark;
+  }
+  
+  /* Paragraph styles */
+  p {
+    @apply text-body mb-md;
+  }
+  
+  /* List styles */
+  ul, ol {
+    @apply pl-md mb-md;
+  }
+  
+  li {
+    @apply mb-xs;
+  }
+}
+
+@layer components {
+  /* Common layout components */
+  .container-md {
+    @apply max-w-3xl mx-auto px-md;
+  }
+  
+  .container-lg {
+    @apply max-w-5xl mx-auto px-md;
+  }
+  
+  .container-xl {
+    @apply max-w-7xl mx-auto px-md;
+  }
+  
+  /* Section spacing */
+  .section {
+    @apply py-xl;
+  }
+  
+  /* Form elements */
+  .form-input {
+    @apply px-md py-sm rounded-md border border-gray-300 w-full focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent;
+  }
+  
+  .form-label {
+    @apply block text-text-secondary text-body-sm mb-xs;
+  }
+}
+
+@layer utilities {
+  /* Text utility classes */
+  .text-body-large {
+    @apply text-body-lg;
+  }
+  
+  .text-body-regular {
+    @apply text-body;
+  }
+  
+  .text-body-small {
+    @apply text-body-sm;
+  }
+  
+  /* Semantic spacing classes */
+  .spacer-xs {
+    @apply h-xs;
+  }
+  
+  .spacer-sm {
+    @apply h-sm;
+  }
+  
+  .spacer-md {
+    @apply h-md;
+  }
+  
+  .spacer-lg {
+    @apply h-lg;
   }
 }
 
