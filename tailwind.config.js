@@ -52,28 +52,28 @@ module.exports = {
         body: ['Roboto', 'sans-serif'],
       },
       fontSize: {
-        // Typography scale
-        'xs': ['0.75rem', { lineHeight: '1rem' }],       // 12px
-        'sm': ['0.875rem', { lineHeight: '1.25rem' }],   // 14px
-        'base': ['1rem', { lineHeight: '1.5rem' }],      // 16px
-        'lg': ['1.125rem', { lineHeight: '1.75rem' }],   // 18px
-        'xl': ['1.25rem', { lineHeight: '1.75rem' }],    // 20px
-        '2xl': ['1.5rem', { lineHeight: '2rem' }],       // 24px
-        '3xl': ['1.875rem', { lineHeight: '2.25rem' }],  // 30px
-        '4xl': ['2.25rem', { lineHeight: '2.5rem' }],    // 36px
-        '5xl': ['3rem', { lineHeight: '1' }],            // 48px
+        // Typography scale - sizing down overall
+        'xs': ['0.7rem', { lineHeight: '1rem' }],        // 11.2px
+        'sm': ['0.8125rem', { lineHeight: '1.25rem' }],  // 13px
+        'base': ['0.9375rem', { lineHeight: '1.375rem' }],// 15px
+        'lg': ['1.0625rem', { lineHeight: '1.5rem' }],   // 17px
+        'xl': ['1.1875rem', { lineHeight: '1.75rem' }],  // 19px
+        '2xl': ['1.375rem', { lineHeight: '1.75rem' }],  // 22px
+        '3xl': ['1.75rem', { lineHeight: '2rem' }],      // 28px
+        '4xl': ['2.125rem', { lineHeight: '2.25rem' }],  // 34px
+        '5xl': ['2.75rem', { lineHeight: '1' }],         // 44px
         
         // Semantic typography sizes
-        'heading-1': ['2.25rem', { lineHeight: '2.5rem', fontWeight: '700' }],
-        'heading-2': ['1.875rem', { lineHeight: '2.25rem', fontWeight: '700' }],
-        'heading-3': ['1.5rem', { lineHeight: '2rem', fontWeight: '600' }],
-        'heading-4': ['1.25rem', { lineHeight: '1.75rem', fontWeight: '600' }],
-        'heading-5': ['1.125rem', { lineHeight: '1.75rem', fontWeight: '600' }],
-        'heading-6': ['1rem', { lineHeight: '1.5rem', fontWeight: '600' }],
-        'body-lg': ['1.125rem', { lineHeight: '1.75rem' }],
-        'body': ['1rem', { lineHeight: '1.5rem' }],
-        'body-sm': ['0.875rem', { lineHeight: '1.25rem' }],
-        'caption': ['0.75rem', { lineHeight: '1rem' }],
+        'heading-1': ['1.75rem', { lineHeight: '2rem', fontWeight: '700' }],     // Reduced
+        'heading-2': ['1.5rem', { lineHeight: '1.75rem', fontWeight: '700' }],   // Reduced
+        'heading-3': ['1.25rem', { lineHeight: '1.5rem', fontWeight: '600' }],   // Reduced
+        'heading-4': ['1.125rem', { lineHeight: '1.5rem', fontWeight: '600' }],  // Reduced
+        'heading-5': ['1rem', { lineHeight: '1.5rem', fontWeight: '600' }],      // Reduced
+        'heading-6': ['0.9375rem', { lineHeight: '1.25rem', fontWeight: '600' }],// Reduced
+        'body-lg': ['1rem', { lineHeight: '1.5rem' }],           // Reduced
+        'body': ['0.9375rem', { lineHeight: '1.375rem' }],       // Reduced
+        'body-sm': ['0.8125rem', { lineHeight: '1.25rem' }],     // Reduced
+        'caption': ['0.75rem', { lineHeight: '1rem' }],          // Kept smallest size
       },
       boxShadow: {
         sm: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',

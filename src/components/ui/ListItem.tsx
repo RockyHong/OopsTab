@@ -1,5 +1,6 @@
 import React from "react";
 import Typography from "./Typography";
+import { cn } from "../../utils/classnames";
 
 interface ListItemProps {
   title: React.ReactNode;
@@ -22,12 +23,14 @@ const ListItem: React.FC<ListItemProps> = ({
 }) => {
   return (
     <div
-      className={`flex items-center p-2 border-b border-gray-100 last:border-b-0 ${
-        onClick ? "cursor-pointer" : ""
-      } ${className}`}
+      className={cn(
+        "flex items-center p-3 border-b border-gray-100 last:border-b-0",
+        onClick && "cursor-pointer hover:bg-gray-50",
+        className
+      )}
       onClick={onClick}
     >
-      {icon && <div className="mr-3 text-gray-500">{icon}</div>}
+      {icon && <div className="mr-3 text-gray-500 flex-shrink-0">{icon}</div>}
 
       <div className="flex-1 min-w-0">
         {typeof title === "string" ? (
@@ -42,19 +45,21 @@ const ListItem: React.FC<ListItemProps> = ({
         )}
 
         {subtitle && (
-          <Typography variant="caption" className="text-gray-500 truncate">
+          <Typography variant="caption" className="text-gray-500 truncate mt-1">
             {subtitle}
           </Typography>
         )}
 
         {metadata && (
-          <Typography variant="caption" className="text-gray-400">
+          <Typography variant="caption" className="text-gray-400 mt-1">
             {metadata}
           </Typography>
         )}
       </div>
 
-      {actions && <div className="ml-2 flex items-center">{actions}</div>}
+      {actions && (
+        <div className="ml-2 flex items-center flex-shrink-0">{actions}</div>
+      )}
     </div>
   );
 };

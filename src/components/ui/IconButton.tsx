@@ -1,4 +1,6 @@
 import React from "react";
+import { cn } from "../../utils/classnames";
+import { Size, BaseComponentProps } from "../../types/ui";
 
 type IconButtonVariant =
   | "primary"
@@ -6,14 +8,12 @@ type IconButtonVariant =
   | "danger"
   | "warning"
   | "secondary";
-type IconButtonSize = "sm" | "md" | "lg";
 
 interface IconButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
+    BaseComponentProps {
   variant?: IconButtonVariant;
-  size?: IconButtonSize;
-  children: React.ReactNode;
-  className?: string;
+  size?: Size;
 }
 
 const IconButton: React.FC<IconButtonProps> = ({
@@ -23,9 +23,6 @@ const IconButton: React.FC<IconButtonProps> = ({
   className = "",
   ...props
 }) => {
-  const baseClasses =
-    "rounded-full flex items-center justify-center transition-all";
-
   const variantClasses = {
     primary: "text-primary hover:bg-primary hover:bg-opacity-10",
     passive: "text-gray-600 hover:bg-gray-200",
@@ -35,14 +32,19 @@ const IconButton: React.FC<IconButtonProps> = ({
   };
 
   const sizeClasses = {
-    sm: "p-1",
-    md: "p-2",
-    lg: "p-3",
+    sm: "p-0.5 h-6 w-6",
+    md: "p-1 h-8 w-8",
+    lg: "p-1.5 h-10 w-10",
   };
 
   return (
     <button
-      className={`${baseClasses} ${variantClasses[variant]} ${sizeClasses[size]} ${className}`}
+      className={cn(
+        "rounded-full flex items-center justify-center transition-all",
+        variantClasses[variant],
+        sizeClasses[size],
+        className
+      )}
       {...props}
     >
       {children}

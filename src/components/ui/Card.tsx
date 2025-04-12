@@ -15,11 +15,11 @@ const Card: React.FC<CardProps> = ({
   ...props
 }) => {
   const variantClasses = {
-    default: "bg-white rounded-lg shadow-card p-md flex flex-col gap-md",
+    default: "bg-white rounded-lg shadow-card p-3 flex flex-col gap-3",
     highlighted:
-      "bg-white rounded-lg shadow-card p-md flex flex-col gap-md border-l-4 border-primary",
+      "bg-white rounded-lg shadow-card p-3 flex flex-col gap-3 border-l-4 border-primary",
     inactive:
-      "bg-white rounded-lg shadow-card p-md flex flex-col gap-md opacity-70",
+      "bg-white rounded-lg shadow-card p-3 flex flex-col gap-3 opacity-70",
   };
 
   const hoverClasses = hoverable

@@ -88,9 +88,9 @@ const OopsTab: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-surface">
-      <header className="bg-white shadow-sm">
-        <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
-          <Typography variant="h1" className="text-primary">
+      <header className="bg-white shadow-sm sticky top-0 z-10">
+        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+          <Typography variant="h2" className="text-primary">
             OopsTab
           </Typography>
           <div className="flex space-x-2">
@@ -835,12 +835,12 @@ const SnapshotsPanel: React.FC = () => {
 
                 return (
                   <Card className="p-0 overflow-hidden">
-                    <div className="px-2 py-2 bg-gray-50 border-b border-gray-200">
+                    <div className="p-3 bg-primary/5 border-b border-gray-200">
                       <Typography
                         variant="h4"
-                        className="font-semibold flex items-center"
+                        className="font-semibold flex items-center text-primary-dark"
                       >
-                        <StarIcon className="h-4 w-4 text-yellow-500 mr-1" />
+                        <StarIcon className="h-4 w-4 text-yellow-500 mr-1.5" />
                         Starred Snapshots
                       </Typography>
                     </div>
@@ -853,7 +853,7 @@ const SnapshotsPanel: React.FC = () => {
                     {/* Show more/less button */}
                     {grouped.starred.length > 3 && (
                       <div
-                        className="w-full px-2 py-2 border-t border-gray-200 bg-gray-50 hover:bg-gray-100 cursor-pointer text-sm text-gray-600 flex items-center justify-center"
+                        className="w-full p-2 border-t border-gray-200 bg-gray-100/40 hover:bg-gray-100 cursor-pointer text-sm text-gray-600 flex items-center justify-center"
                         onClick={() => setShowAllStarred(!showAllStarred)}
                       >
                         {showAllStarred ? (
@@ -978,8 +978,11 @@ const SnapshotsPanel: React.FC = () => {
                 if (grouped.today.length > 0) {
                   sections.push(
                     <div key="today-section">
-                      <div className="px-2 py-2 bg-gray-50 border-b border-gray-200">
-                        <Typography variant="h4" className="font-semibold">
+                      <div className="p-3 bg-primary/5 border-b border-gray-200">
+                        <Typography
+                          variant="h4"
+                          className="font-semibold text-primary-dark"
+                        >
                           Recent Snapshots
                         </Typography>
                       </div>
@@ -994,9 +997,9 @@ const SnapshotsPanel: React.FC = () => {
                 if (grouped.yesterday.length > 0) {
                   sections.push(
                     <div key="yesterday-section">
-                      <div className="px-2 py-2 bg-gray-50 border-b border-gray-200">
+                      <div className="p-2 bg-gray-100/60 border-b border-gray-200">
                         <Typography
-                          variant="body"
+                          variant="body-sm"
                           className="font-medium text-gray-600"
                         >
                           Yesterday
@@ -1021,9 +1024,9 @@ const SnapshotsPanel: React.FC = () => {
                   const items = grouped.older[date];
                   sections.push(
                     <div key={`date-${date}`}>
-                      <div className="px-2 py-2 bg-gray-50 border-b border-gray-200">
+                      <div className="p-2 bg-gray-100/60 border-b border-gray-200">
                         <Typography
-                          variant="body"
+                          variant="body-sm"
                           className="font-medium text-gray-600"
                         >
                           {date}
@@ -1040,9 +1043,9 @@ const SnapshotsPanel: React.FC = () => {
                 if (grouped.invalid.length > 0) {
                   sections.push(
                     <div key="invalid-section">
-                      <div className="px-2 py-2 bg-gray-50 border-b border-gray-200">
+                      <div className="p-2 bg-gray-100/60 border-b border-gray-200">
                         <Typography
-                          variant="body"
+                          variant="body-sm"
                           className="font-medium text-gray-600"
                         >
                           Corrupted or Invalid Snapshots
