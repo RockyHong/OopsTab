@@ -1,9 +1,9 @@
 import React from "react";
+import { CardVariant, BaseComponentProps } from "../../types/ui";
+import { cn } from "../../utils/classnames";
 
-interface CardProps {
-  children: React.ReactNode;
-  className?: string;
-  variant?: "default" | "highlighted" | "inactive";
+interface CardProps extends BaseComponentProps {
+  variant?: CardVariant;
   hoverable?: boolean;
 }
 
@@ -14,12 +14,12 @@ const Card: React.FC<CardProps> = ({
   hoverable = false,
   ...props
 }) => {
-  const baseClasses = "card";
-
   const variantClasses = {
-    default: "",
-    highlighted: "border-l-4 border-primary",
-    inactive: "opacity-70",
+    default: "bg-white rounded-lg shadow-card p-md flex flex-col gap-md",
+    highlighted:
+      "bg-white rounded-lg shadow-card p-md flex flex-col gap-md border-l-4 border-primary",
+    inactive:
+      "bg-white rounded-lg shadow-card p-md flex flex-col gap-md opacity-70",
   };
 
   const hoverClasses = hoverable
@@ -28,7 +28,7 @@ const Card: React.FC<CardProps> = ({
 
   return (
     <div
-      className={`${baseClasses} ${variantClasses[variant]} ${hoverClasses} ${className}`}
+      className={cn(variantClasses[variant], hoverClasses, className)}
       {...props}
     >
       {children}

@@ -1,13 +1,12 @@
 import React from "react";
+import { ButtonVariant, Size, BaseComponentProps } from "../../types/ui";
+import { cn } from "../../utils/classnames";
 
-type ButtonVariant = "primary" | "passive" | "danger";
-type ButtonSize = "sm" | "md" | "lg";
-
-interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+interface ButtonProps
+  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
+    BaseComponentProps {
   variant?: ButtonVariant;
-  size?: ButtonSize;
-  children: React.ReactNode;
-  className?: string;
+  size?: Size;
 }
 
 const Button: React.FC<ButtonProps> = ({
@@ -17,23 +16,29 @@ const Button: React.FC<ButtonProps> = ({
   className = "",
   ...props
 }) => {
-  const baseClasses = "rounded-md text-sm font-medium transition-all shadow-sm";
-
   const variantClasses = {
-    primary: "btn-primary",
-    passive: "btn-passive",
-    danger: "btn-danger",
+    primary:
+      "bg-primary text-white shadow-sm transition-all hover:bg-primary-dark",
+    passive:
+      "bg-gray-200 text-gray-700 shadow-sm transition-all hover:bg-gray-300",
+    danger:
+      "bg-danger text-white shadow-sm transition-all hover:bg-danger-dark",
   };
 
   const sizeClasses = {
-    sm: "px-2 py-1 text-xs",
-    md: "px-4 py-2",
-    lg: "px-6 py-3 text-base",
+    sm: "px-sm py-xs text-xs",
+    md: "px-md py-sm text-sm",
+    lg: "px-lg py-md text-base",
   };
 
   return (
     <button
-      className={`${baseClasses} ${variantClasses[variant]} ${sizeClasses[size]} ${className}`}
+      className={cn(
+        "rounded-md font-medium",
+        variantClasses[variant],
+        sizeClasses[size],
+        className
+      )}
       {...props}
     >
       {children}
