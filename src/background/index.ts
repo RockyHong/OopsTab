@@ -12,6 +12,7 @@ import {
   getWindowIdMap,
   resetDeletedWindowTracking,
   cacheWindowState,
+  checkForReopenedWindow,
 } from "../utils";
 import browser from "../utils/browserAPI";
 
@@ -59,17 +60,45 @@ browser.action.onClicked.addListener(() => {
 // Listen for window creation to assign oopsWindowId
 browser.windows.onCreated.addListener((window) => {
   if (window.id !== undefined) {
-    registerWindow(window.id)
-      .then((oopsWindowId) => {
-        console.log(
-          `Registered window ${window.id} with oopsWindowId ${oopsWindowId}`
-        );
-        // Create initial snapshot for this window
-        debouncedSnapshotCreation(window.id);
+    const windowId = window.id; // Store in a const to fix type issue
+    // First check if this is a reopened window from Chrome history
+    checkForReopenedWindow(windowId)
+      .then((isReopenedWindow) => {
+        if (isReopenedWindow) {
+          console.log(
+            `Window ${windowId} identified as a reopened window from Chrome history`
+          );
+          // Create a snapshot to update with latest state
+          debouncedSnapshotCreation(windowId);
+        } else {
+          // Regular new window flow
+          registerWindow(windowId)
+            .then((oopsWindowId) => {
+              console.log(
+                `Registered window ${windowId} with oopsWindowId ${oopsWindowId}`
+              );
+              // Create initial snapshot for this window
+              debouncedSnapshotCreation(windowId);
+            })
+            .catch((err) =>
+              console.error(`Error registering window ${windowId}:`, err)
+            );
+        }
       })
-      .catch((err) =>
-        console.error(`Error registering window ${window.id}:`, err)
-      );
+      .catch((err) => {
+        console.error(`Error checking for reopened window ${windowId}:`, err);
+        // Fallback to normal registration if the check fails
+        registerWindow(windowId)
+          .then((oopsWindowId) => {
+            console.log(
+              `Registered window ${windowId} with oopsWindowId ${oopsWindowId} (fallback after check error)`
+            );
+            debouncedSnapshotCreation(windowId);
+          })
+          .catch((err) =>
+            console.error(`Error registering window ${windowId}:`, err)
+          );
+      });
   }
 });
 

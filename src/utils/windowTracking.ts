@@ -157,3 +157,100 @@ export const initializeWindowTracking = async (): Promise<void> => {
 
   console.log("Window tracking initialized");
 };
+
+/**
+ * Check if a newly created window might be a reopened window from Chrome history
+ * Compares URLs with existing snapshots to find matches
+ * @param windowId The Chrome window ID to check
+ * @returns Promise resolving to true if a match was found and associated
+ */
+export const checkForReopenedWindow = async (
+  windowId: number
+): Promise<boolean> => {
+  try {
+    // Get tabs from this window
+    const tabs = await browser.tabs.query({ windowId });
+    if (tabs.length === 0) return false;
+
+    // We need to import the snapshot functions here
+    // Using dynamic import to avoid circular dependencies
+    const { getAllSnapshots } = await import("./snapshotManager");
+
+    // Get all snapshots
+    const snapshots = await getAllSnapshots();
+
+    // Extract URLs from this window's tabs
+    const windowUrls = new Set(tabs.map((tab) => tab.url || ""));
+
+    // Find best matching snapshot
+    let bestMatch = { oopsWindowId: "", matchPercentage: 0 };
+
+    for (const [oopsWindowId, snapshot] of Object.entries(snapshots)) {
+      if (!snapshot.tabs || snapshot.tabs.length === 0) continue;
+
+      // Count matches
+      const snapshotUrls = snapshot.tabs.map((tab) => tab.url);
+      let matches = 0;
+
+      for (const url of snapshotUrls) {
+        if (windowUrls.has(url)) matches++;
+      }
+
+      // Calculate match percentage - use the smaller count as denominator for higher accuracy
+      const matchPercentage =
+        (matches / Math.min(windowUrls.size, snapshotUrls.length)) * 100;
+
+      // Consider it a match if percentage is high enough (over 70%)
+      if (matchPercentage > 70 && matchPercentage > bestMatch.matchPercentage) {
+        bestMatch = { oopsWindowId, matchPercentage };
+      }
+    }
+
+    // If we found a good match, update the window ID mapping
+    if (bestMatch.matchPercentage > 0) {
+      const idMap = await getWindowIdMap();
+
+      // Check if the matched oopsWindowId is already associated with another window
+      let alreadyMapped = false;
+      for (const [existingWindowIdStr, existingOopsId] of Object.entries(
+        idMap
+      )) {
+        if (existingOopsId === bestMatch.oopsWindowId) {
+          const existingWindowId = parseInt(existingWindowIdStr, 10);
+
+          // Check if the window still exists
+          try {
+            await browser.windows.get(existingWindowId);
+            console.log(
+              `The matched window ID ${bestMatch.oopsWindowId} is already associated with window ${existingWindowId}`
+            );
+            alreadyMapped = true;
+            break;
+          } catch (err) {
+            // Window doesn't exist anymore, we can reuse the oopsWindowId
+            console.log(
+              `Window ${existingWindowId} no longer exists, can reuse oopsWindowId`
+            );
+          }
+        }
+      }
+
+      // Only reassign if not already mapped to an active window
+      if (!alreadyMapped) {
+        idMap[windowId] = bestMatch.oopsWindowId;
+        await saveWindowIdMap(idMap);
+        console.log(
+          `Associated window ${windowId} with existing oopsWindowId ${
+            bestMatch.oopsWindowId
+          } (${bestMatch.matchPercentage.toFixed(2)}% URL match)`
+        );
+        return true;
+      }
+    }
+
+    return false;
+  } catch (err) {
+    console.error("Error checking for reopened window:", err);
+    return false;
+  }
+};

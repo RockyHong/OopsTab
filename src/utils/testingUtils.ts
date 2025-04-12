@@ -356,3 +356,81 @@ const createTestTabs = (count: number): TabData[] => {
 
   return tabs;
 };
+
+/**
+ * Test window reopening detection by creating a snapshot and opening a matching window
+ * This simulates a user reopening a window through Chrome history
+ * @returns Promise resolving to the test snapshot's oopsWindowId if successful
+ */
+export const testWindowReopeningDetection = async (): Promise<
+  string | null
+> => {
+  try {
+    console.log("Testing window reopening detection...");
+
+    // Create a unique test window ID
+    const testWindowId = `test-reopen-${Date.now()}`;
+
+    // Create test URLs that are easily identifiable
+    const testUrls = [
+      "https://example.com/test-reopen-1",
+      "https://example.com/test-reopen-2",
+      "https://github.com/test-reopen-page",
+    ];
+
+    // Create a test snapshot with these URLs
+    const { getAllSnapshots, saveAllSnapshots } = await import(
+      "./snapshotManager"
+    );
+    const snapshots = await getAllSnapshots();
+
+    // Create a test snapshot
+    snapshots[testWindowId] = {
+      timestamp: Date.now(),
+      tabs: testUrls.map((url, index) => ({
+        id: index,
+        url,
+        title: `Test Tab ${index + 1}`,
+        pinned: false,
+        groupId: -1,
+        index,
+        faviconUrl: "",
+      })),
+      groups: [],
+      customName: "Test Reopened Window",
+    };
+
+    // Save the test snapshot
+    await saveAllSnapshots(snapshots);
+    console.log(`Created test snapshot with ID ${testWindowId}`);
+
+    // Now open a new window with the same URLs to trigger the detection
+    const browser = (await import("./browserAPI")).default;
+    const newWindow = await browser.windows.create({
+      url: testUrls[0], // Open with the first URL
+    });
+
+    if (!newWindow.id) {
+      console.error("Failed to create test window");
+      return null;
+    }
+
+    // Add the remaining tabs to this window
+    for (let i = 1; i < testUrls.length; i++) {
+      await browser.tabs.create({
+        url: testUrls[i],
+        windowId: newWindow.id,
+      });
+    }
+
+    console.log(`Created test window with ID ${newWindow.id}`);
+    console.log(
+      "Wait a moment for the detection to run, then check the extension logs"
+    );
+
+    return testWindowId;
+  } catch (err) {
+    console.error("Error testing window reopening detection:", err);
+    return null;
+  }
+};

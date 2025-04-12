@@ -19,6 +19,7 @@ import {
   StarIcon,
   ChevronDownIcon,
   ChevronUpIcon,
+  WindowIcon,
 } from "@heroicons/react/24/solid";
 import {
   ClockIcon,
@@ -42,6 +43,7 @@ import {
   SnapshotMap,
   TabData,
   TabGroupData,
+  WindowIdMap,
 } from "../../types";
 import browser from "../../utils/browserAPI";
 
@@ -347,6 +349,7 @@ const SnapshotsPanel: React.FC = () => {
   const [snapshots, setSnapshots] = useState<SnapshotMap>({});
   const [isLoading, setIsLoading] = useState(true);
   const [showAllStarred, setShowAllStarred] = useState(false);
+  const [openWindows, setOpenWindows] = useState<Set<string>>(new Set());
   const [storageStatus, setStorageStatus] = useState({
     percentUsed: 0,
     isApproachingLimit: false,
@@ -402,9 +405,34 @@ const SnapshotsPanel: React.FC = () => {
     }
   };
 
+  // Function to check which windows are currently open
+  const checkOpenWindows = async () => {
+    try {
+      // Get all windows
+      const windows = await browser.windows.getAll();
+
+      // Get the window ID map from storage
+      const result = await browser.storage.local.get(["oopsWindowIdMap"]);
+      const windowIdMap = (result.oopsWindowIdMap || {}) as WindowIdMap;
+
+      // Create a set of open oopsWindowIds
+      const openOopsWindowIds = new Set<string>();
+      for (const window of windows) {
+        if (window.id && windowIdMap[window.id]) {
+          openOopsWindowIds.add(windowIdMap[window.id]);
+        }
+      }
+
+      setOpenWindows(openOopsWindowIds);
+    } catch (err) {
+      console.error("Error checking open windows:", err);
+    }
+  };
+
   // Load snapshots on mount
   useEffect(() => {
     loadSnapshots();
+    checkOpenWindows();
 
     // Set up listener for storage changes
     const handleStorageChanges = (changes: any, areaName: string) => {
@@ -413,6 +441,7 @@ const SnapshotsPanel: React.FC = () => {
         if (changes.oopsSnapshots) {
           console.log("Snapshot storage changes detected, refreshing...");
           loadSnapshots();
+          checkOpenWindows();
         }
       }
     };
@@ -603,6 +632,8 @@ const SnapshotsPanel: React.FC = () => {
     oopsWindowId: string,
     snapshot: WindowSnapshot
   ) => {
+    const isCurrentlyOpen = openWindows.has(oopsWindowId);
+
     // Defensive check to make sure snapshot.tabs exists
     if (!snapshot || !snapshot.tabs || !Array.isArray(snapshot.tabs)) {
       return (
@@ -658,6 +689,15 @@ const SnapshotsPanel: React.FC = () => {
                   {formatDate(snapshot.timestamp)}
                 </Typography>
               </div>
+              {/* Currently Open Label */}
+              {isCurrentlyOpen && (
+                <div className="flex items-center space-x-1 bg-green-100 text-green-800 px-1.5 py-0.5 rounded-full">
+                  <WindowIcon className="h-3.5 w-3.5" />
+                  <Typography variant="caption" className="font-medium">
+                    Currently Open
+                  </Typography>
+                </div>
+              )}
             </div>
 
             {/* Render the new DynamicFaviconList component */}
