@@ -109,6 +109,37 @@ const ConfirmationDialog: React.FC<{
   );
 };
 
+// Merge Confirmation Dialog component
+const MergeConfirmationDialog: React.FC<{
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirmNew: () => void;
+  onConfirmReplace: () => void;
+  selectedCount: number;
+}> = ({ isOpen, onClose, onConfirmNew, onConfirmReplace, selectedCount }) => {
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title="Merge Snapshots">
+      <div className="space-y-4">
+        <Typography variant="body">
+          You are about to merge {selectedCount} snapshots. How would you like
+          to merge them?
+        </Typography>
+        <div className="flex justify-end space-x-3 pt-2">
+          <Button variant="primary" onClick={onConfirmNew} size="sm">
+            Create New
+          </Button>
+          <Button variant="passive" onClick={onConfirmReplace} size="sm">
+            Replace (Merge into first selected)
+          </Button>
+          <Button variant="passive" onClick={onClose} size="sm">
+            Cancel
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  );
+};
+
 // --- New Component for Dynamic Favicon List ---
 interface DynamicFaviconListProps {
   tabs: TabData[];
@@ -244,7 +275,7 @@ const DynamicFaviconList: React.FC<DynamicFaviconListProps> = ({
       ref={containerRef}
       className="flex items-center overflow-hidden mt-1 gap-1"
     >
-      {visibleItems.map((item) => {
+      {visibleItems.map((item, itemIndex) => {
         if (item.type === "group") {
           const group = item.data as {
             id: number;
@@ -254,7 +285,7 @@ const DynamicFaviconList: React.FC<DynamicFaviconListProps> = ({
           };
           return (
             <div
-              key={`group-${group.id}`}
+              key={`group-${group.id}-${itemIndex}`}
               className="flex items-center gap-1 flex-shrink-0"
             >
               <span
@@ -265,7 +296,7 @@ const DynamicFaviconList: React.FC<DynamicFaviconListProps> = ({
               </span>
               {group.tabs.length > 0 && (
                 <div
-                  key={`group-tab-${group.id}-0`}
+                  key={`group-tab-${group.id}-${itemIndex}-0`}
                   className="h-5 w-5 rounded-full border border-white overflow-hidden bg-gray-100 flex items-center justify-center flex-shrink-0"
                   title={group.tabs[0].title || group.tabs[0].url || ""}
                 >
@@ -290,7 +321,7 @@ const DynamicFaviconList: React.FC<DynamicFaviconListProps> = ({
           const tab = item.data as TabData;
           return (
             <div
-              key={`tab-${tab.id || tab.index}`}
+              key={`tab-${tab.id || tab.index}-${itemIndex}`}
               className="h-5 w-5 rounded-full border border-white overflow-hidden bg-gray-100 flex items-center justify-center flex-shrink-0"
               title={tab.title || tab.url || ""}
             >
@@ -336,6 +367,13 @@ const SnapshotsPanel: React.FC = () => {
   });
   const scrollPositionRef = useRef<number>(0); // Ref to store scroll position
 
+  // Bulk action states
+  const [isSelectMode, setIsSelectMode] = useState(false);
+  const [selectedSnapshots, setSelectedSnapshots] = useState<Set<string>>(
+    new Set()
+  );
+  const [showMergeConfirm, setShowMergeConfirm] = useState(false);
+
   // Lazy loading states
   const [visibleToday, setVisibleToday] = useState<number>(10); // Initial number of today's snapshots to show
   const [visibleYesterday, setVisibleYesterday] = useState<number>(5); // Initial number of yesterday's snapshots to show
@@ -352,6 +390,7 @@ const SnapshotsPanel: React.FC = () => {
   const [confirmDialog, setConfirmDialog] = useState({
     isOpen: false,
     windowId: "",
+    isBulkDelete: false,
   });
 
   // Initialize intersection observer for infinite scrolling
@@ -541,34 +580,223 @@ const SnapshotsPanel: React.FC = () => {
     }
   };
 
+  // Handle bulk restore
+  const handleBulkRestore = async () => {
+    for (const oopsWindowId of selectedSnapshots) {
+      await handleRestore(oopsWindowId);
+    }
+    // Exit select mode after operation
+    setIsSelectMode(false);
+    setSelectedSnapshots(new Set());
+  };
+
   // Handle snapshot deletion
   const handleDelete = async (oopsWindowId: string) => {
     // Open confirmation dialog instead of using browser's confirm
     setConfirmDialog({
       isOpen: true,
       windowId: oopsWindowId,
+      isBulkDelete: false,
+    });
+  };
+
+  // Handle bulk delete
+  const handleBulkDelete = () => {
+    setConfirmDialog({
+      isOpen: true,
+      windowId: "",
+      isBulkDelete: true,
     });
   };
 
   // Actual deletion after confirmation
   const confirmDelete = async () => {
-    const { windowId } = confirmDialog;
-
-    try {
-      const success = await deleteSnapshot(windowId);
-      if (success) {
-        console.log(`Successfully deleted snapshot for window ${windowId}`);
+    if (confirmDialog.isBulkDelete) {
+      // Bulk delete
+      try {
+        for (const windowId of selectedSnapshots) {
+          await deleteSnapshot(windowId);
+        }
+        console.log(`Successfully deleted ${selectedSnapshots.size} snapshots`);
         // Refresh the list
         loadSnapshots();
-      } else {
-        console.error(`Failed to delete snapshot for window ${windowId}`);
+      } catch (err) {
+        console.error("Error deleting snapshots:", err);
+      } finally {
+        // Close the dialog and exit select mode
+        setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
+        setIsSelectMode(false);
+        setSelectedSnapshots(new Set());
       }
-    } catch (err) {
-      console.error("Error deleting snapshot:", err);
-    } finally {
-      // Close the dialog
-      setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
+    } else {
+      // Single delete
+      const { windowId } = confirmDialog;
+      try {
+        const success = await deleteSnapshot(windowId);
+        if (success) {
+          console.log(`Successfully deleted snapshot for window ${windowId}`);
+          // Refresh the list
+          loadSnapshots();
+        } else {
+          console.error(`Failed to delete snapshot for window ${windowId}`);
+        }
+      } catch (err) {
+        console.error("Error deleting snapshot:", err);
+      } finally {
+        // Close the dialog
+        setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
+      }
     }
+  };
+
+  // Handle merge snapshots
+  const handleMerge = () => {
+    if (selectedSnapshots.size < 2) {
+      alert("Please select at least 2 snapshots to merge");
+      return;
+    }
+    setShowMergeConfirm(true);
+  };
+
+  // Update merge snapshots logic to correctly handle the Replace option
+  const mergeSnapshots = async (createNew: boolean) => {
+    try {
+      // Get all selected snapshots
+      const selectedSnapshotObjects: WindowSnapshot[] = [];
+      const snapshotIds = Array.from(selectedSnapshots);
+
+      for (const id of snapshotIds) {
+        if (snapshots[id]) {
+          selectedSnapshotObjects.push(snapshots[id]);
+        }
+      }
+
+      // Sort by number of tabs (descending)
+      selectedSnapshotObjects.sort(
+        (a, b) => (b.tabs?.length || 0) - (a.tabs?.length || 0)
+      );
+
+      // Base snapshot to get properties from
+      const baseSnapshot = selectedSnapshotObjects[0];
+      // Always generate a new window ID for both modes
+      const targetWindowId = `oops-window-${Date.now()}`;
+
+      // Create a new snapshot with appropriate name and data
+      let newSnapshot: WindowSnapshot = {
+        ...baseSnapshot,
+        timestamp: Date.now(),
+        tabs: [],
+        groups: [],
+      };
+
+      // Set appropriate custom name based on mode
+      if (createNew) {
+        newSnapshot.customName = "Merged Snapshot";
+      } else {
+        // When replacing, use the base snapshot's name
+        newSnapshot.customName =
+          baseSnapshot.customName ||
+          baseSnapshot.tabs?.[0]?.title ||
+          "Merged: Multiple Windows";
+      }
+
+      // Ensure tabs array exists
+      if (!newSnapshot.tabs) newSnapshot.tabs = [];
+      if (!newSnapshot.groups) newSnapshot.groups = [];
+
+      // Combine all tabs and groups
+      const allTabs: TabData[] = [];
+      const allGroups: TabGroupData[] = [];
+      const existingGroupIds = new Set<number>();
+
+      // Process all selected snapshots
+      for (const snapshot of selectedSnapshotObjects) {
+        if (snapshot.tabs && Array.isArray(snapshot.tabs)) {
+          // For tabs, we need to update their indices
+          const startIndex = allTabs.length;
+          snapshot.tabs.forEach((tab, idx) => {
+            allTabs.push({
+              ...tab,
+              index: startIndex + idx,
+            });
+          });
+
+          // For groups, we need to avoid ID conflicts
+          if (snapshot.groups && Array.isArray(snapshot.groups)) {
+            snapshot.groups.forEach((group) => {
+              if (!existingGroupIds.has(group.id)) {
+                allGroups.push(group);
+                existingGroupIds.add(group.id);
+              } else {
+                // Generate a new ID for this group
+                const newId = Math.max(...Array.from(existingGroupIds)) + 1;
+                allGroups.push({
+                  ...group,
+                  id: newId,
+                });
+                existingGroupIds.add(newId);
+
+                // Update group IDs in tabs
+                allTabs.forEach((tab) => {
+                  if (tab.groupId === group.id) {
+                    tab.groupId = newId;
+                  }
+                });
+              }
+            });
+          }
+        }
+      }
+
+      // Save the merged snapshot
+      newSnapshot.tabs = allTabs;
+      newSnapshot.groups = allGroups;
+
+      // Store in local storage
+      const result = await browser.storage.local.get(["oopsSnapshots"]);
+      const storedSnapshots = (result.oopsSnapshots || {}) as SnapshotMap;
+
+      // Add the new merged snapshot
+      storedSnapshots[targetWindowId] = newSnapshot;
+
+      // If replacing, delete ALL selected snapshots
+      if (!createNew) {
+        // Remove ALL original snapshots when replacing
+        for (const id of snapshotIds) {
+          delete storedSnapshots[id];
+        }
+      }
+
+      await browser.storage.local.set({ oopsSnapshots: storedSnapshots });
+
+      console.log("Successfully merged snapshots");
+      loadSnapshots();
+    } catch (err) {
+      console.error("Error merging snapshots:", err);
+    } finally {
+      setShowMergeConfirm(false);
+      setIsSelectMode(false);
+      setSelectedSnapshots(new Set());
+    }
+  };
+
+  // Toggle snapshot selection
+  const toggleSnapshotSelection = (oopsWindowId: string) => {
+    setSelectedSnapshots((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(oopsWindowId)) {
+        newSet.delete(oopsWindowId);
+      } else {
+        newSet.add(oopsWindowId);
+      }
+      return newSet;
+    });
+  };
+
+  // Cancel selection mode
+  const cancelSelectMode = () => {
+    setIsSelectMode(false);
+    setSelectedSnapshots(new Set());
   };
 
   // Close the dialog without action
@@ -707,12 +935,13 @@ const SnapshotsPanel: React.FC = () => {
     index: number
   ) => {
     const isCurrentlyOpen = openWindows.has(oopsWindowId);
+    const isSelected = selectedSnapshots.has(oopsWindowId);
 
     // Defensive check to make sure snapshot.tabs exists
     if (!snapshot || !snapshot.tabs || !Array.isArray(snapshot.tabs)) {
       return (
         <ListItem
-          key={`${oopsWindowId}-error`}
+          key={`${oopsWindowId}-error-${index}`}
           title="Error: Invalid snapshot data"
           subtitle="This snapshot appears to be corrupted"
           metadata={
@@ -721,16 +950,31 @@ const SnapshotsPanel: React.FC = () => {
               : "Unknown time"
           }
           actions={
-            <div className="flex space-x-1">
-              <IconButton
-                size="sm"
-                variant="danger"
-                onClick={() => handleDelete(oopsWindowId)}
-                title="Delete snapshot"
-              >
-                <TrashIcon className="h-4 w-4" />
-              </IconButton>
-            </div>
+            isSelectMode ? (
+              <div className="flex items-center justify-center h-full">
+                <input
+                  type="checkbox"
+                  checked={isSelected}
+                  onChange={(e) => {
+                    e.stopPropagation();
+                    toggleSnapshotSelection(oopsWindowId);
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                />
+              </div>
+            ) : (
+              <div className="flex space-x-1">
+                <IconButton
+                  size="sm"
+                  variant="danger"
+                  onClick={() => handleDelete(oopsWindowId)}
+                  title="Delete snapshot"
+                >
+                  <TrashIcon className="h-4 w-4" />
+                </IconButton>
+              </div>
+            )
           }
           className="hover:bg-blue-50 transition-colors duration-150 border-b border-gray-200 last:border-b-0"
         />
@@ -739,9 +983,9 @@ const SnapshotsPanel: React.FC = () => {
 
     return (
       <ListItem
-        key={snapshot.timestamp}
+        key={`${oopsWindowId}-${snapshot.timestamp}-${index}`}
         title={
-          <div>
+          <div className={isSelectMode && isSelected ? "opacity-80" : ""}>
             <EditableSnapshotName
               oopsWindowId={oopsWindowId}
               snapshot={snapshot}
@@ -787,66 +1031,130 @@ const SnapshotsPanel: React.FC = () => {
         subtitle=""
         metadata="" // Timestamp moved to title section
         actions={
-          <div className="flex space-x-1">
-            <IconButton
-              size="sm"
-              variant={snapshot.isStarred ? "warning" : "secondary"}
-              onClick={() =>
-                handleToggleStar(oopsWindowId, !snapshot.isStarred)
-              }
-              title={snapshot.isStarred ? "Unstar snapshot" : "Star snapshot"}
+          isSelectMode ? (
+            <div
+              className="flex items-center justify-center h-full"
+              onClick={(e) => e.stopPropagation()}
             >
-              {snapshot.isStarred ? (
-                <StarIcon className="h-4 w-4 text-yellow-500" />
-              ) : (
-                <StarOutlineIcon className="h-4 w-4" />
-              )}
-            </IconButton>
-            <IconButton
-              size="sm"
-              variant="primary"
-              onClick={() => handleRestore(oopsWindowId)}
-              title="Restore session"
-            >
-              <ArrowTopRightOnSquareIcon className="h-4 w-4" />
-            </IconButton>
-            <IconButton
-              size="sm"
-              variant="danger"
-              onClick={() => handleDelete(oopsWindowId)}
-              title="Delete snapshot"
-            >
-              <TrashIcon className="h-4 w-4" />
-            </IconButton>
-          </div>
+              <input
+                type="checkbox"
+                checked={isSelected}
+                onChange={(e) => {
+                  e.stopPropagation();
+                  toggleSnapshotSelection(oopsWindowId);
+                }}
+                onClick={(e) => e.stopPropagation()}
+                className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+              />
+            </div>
+          ) : (
+            <div className="flex space-x-1">
+              <IconButton
+                size="sm"
+                variant={snapshot.isStarred ? "warning" : "passive"}
+                onClick={() =>
+                  handleToggleStar(oopsWindowId, !snapshot.isStarred)
+                }
+                title={snapshot.isStarred ? "Unstar snapshot" : "Star snapshot"}
+              >
+                {snapshot.isStarred ? (
+                  <StarIcon className="h-4 w-4 text-yellow-500" />
+                ) : (
+                  <StarOutlineIcon className="h-4 w-4" />
+                )}
+              </IconButton>
+              <IconButton
+                size="sm"
+                variant="primary"
+                onClick={() => handleRestore(oopsWindowId)}
+                title="Restore session"
+              >
+                <ArrowTopRightOnSquareIcon className="h-4 w-4" />
+              </IconButton>
+              <IconButton
+                size="sm"
+                variant="danger"
+                onClick={() => handleDelete(oopsWindowId)}
+                title="Delete snapshot"
+              >
+                <TrashIcon className="h-4 w-4" />
+              </IconButton>
+            </div>
+          )
         }
-        className="hover:bg-blue-50 transition-colors duration-150 border-b border-gray-200 last:border-b-0"
+        className={`hover:bg-blue-50 transition-colors duration-150 border-b border-gray-200 last:border-b-0 ${
+          isSelectMode && isSelected ? "bg-blue-50" : ""
+        }`}
+        onClick={
+          isSelectMode ? () => toggleSnapshotSelection(oopsWindowId) : undefined
+        }
       />
     );
   };
 
   return (
-    <div className="space-y-6">
-      {/* Title and Refresh Button */}
-      <div className="flex items-center justify-between mb-4">
+    <div className="space-y-6 relative">
+      {/* Title row - sticky with background */}
+      <div className="sticky top-14 bg-white z-20 py-3 px-6 mb-6 flex items-center justify-between shadow-sm">
         <Typography variant="h2" className="text-primary">
           Window Snapshots
         </Typography>
-        <IconButton
-          variant="primary"
-          size="sm"
-          onClick={loadSnapshots}
-          disabled={isLoading}
-          title="Refresh Snapshots"
-        >
-          <ArrowPathIcon
-            className={`h-5 w-5 ${isLoading ? "animate-spin" : ""}`}
-          />
-        </IconButton>
+
+        {/* Action buttons aligned within title row */}
+        <div className="flex items-center space-x-2">
+          {isSelectMode ? (
+            <>
+              <Button
+                variant="danger"
+                onClick={handleBulkDelete}
+                disabled={selectedSnapshots.size === 0}
+              >
+                Delete ({selectedSnapshots.size})
+              </Button>
+              <Button
+                variant="primary"
+                onClick={handleBulkRestore}
+                disabled={selectedSnapshots.size === 0}
+              >
+                Open ({selectedSnapshots.size})
+              </Button>
+              <Button
+                variant="passive"
+                onClick={handleMerge}
+                disabled={selectedSnapshots.size < 2}
+              >
+                Merge ({selectedSnapshots.size})
+              </Button>
+              <Button variant="passive" onClick={cancelSelectMode}>
+                Cancel
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                variant="passive"
+                onClick={() => setIsSelectMode(true)}
+                title="Select snapshots for bulk actions"
+              >
+                Select
+              </Button>
+              <IconButton
+                variant="primary"
+                onClick={loadSnapshots}
+                disabled={isLoading}
+                title="Refresh Snapshots"
+              >
+                <ArrowPathIcon
+                  className={`h-5 w-5 ${isLoading ? "animate-spin" : ""}`}
+                />
+              </IconButton>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Snapshots */}
-      <div className="mb-6 space-y-4">
+      <div className="space-y-4">
         {isLoading ? (
           <Card className="p-5 flex justify-center items-center">
             <Typography variant="body">Loading snapshots...</Typography>
@@ -860,7 +1168,6 @@ const SnapshotsPanel: React.FC = () => {
           </Card>
         ) : (
           <>
-            {/* Starred Snapshots Card */}
             {(() => {
               // Group snapshots by date and starred status
               type GroupedSnapshots = {
@@ -933,14 +1240,17 @@ const SnapshotsPanel: React.FC = () => {
                   }
                 );
 
-              // Render starred snapshots
+              // Render components
+              const sections = [];
+
+              // Starred Snapshots Card
               if (grouped.starred.length > 0) {
                 const visibleStarredItems = showAllStarred
                   ? grouped.starred
                   : grouped.starred.slice(0, 3);
 
-                return (
-                  <Card className="p-0 overflow-hidden border rounded-lg">
+                sections.push(
+                  <div key="starred-section" className="space-y-2">
                     <div className="snapshot-section-header">
                       <Typography
                         variant="h4"
@@ -950,32 +1260,31 @@ const SnapshotsPanel: React.FC = () => {
                         Starred Snapshots
                       </Typography>
                     </div>
+                    <Card className="p-0 overflow-hidden border rounded-lg">
+                      {visibleStarredItems.map(([id, snapshot], index) =>
+                        renderSnapshotItem(id, snapshot, index)
+                      )}
 
-                    {/* Starred snapshot items */}
-                    {visibleStarredItems.map(([id, snapshot], index) =>
-                      renderSnapshotItem(id, snapshot, index)
-                    )}
-
-                    {/* Show more/less button */}
-                    {grouped.starred.length > 3 && (
-                      <div
-                        className="w-full p-2 border-t border-gray-200 bg-gray-100/40 hover:bg-gray-100 cursor-pointer text-sm text-gray-600 flex items-center justify-center"
-                        onClick={() => setShowAllStarred(!showAllStarred)}
-                      >
-                        {showAllStarred ? (
-                          <>
-                            <ChevronUpIcon className="h-4 w-4 mr-1" />
-                            Show less
-                          </>
-                        ) : (
-                          <>
-                            <ChevronDownIcon className="h-4 w-4 mr-1" />
-                            Show {grouped.starred.length - 3} more
-                          </>
-                        )}
-                      </div>
-                    )}
-                  </Card>
+                      {grouped.starred.length > 3 && (
+                        <div
+                          className="w-full p-2 border-t border-gray-200 bg-gray-100/40 hover:bg-gray-100 cursor-pointer text-sm text-gray-600 flex items-center justify-center"
+                          onClick={() => setShowAllStarred(!showAllStarred)}
+                        >
+                          {showAllStarred ? (
+                            <>
+                              <ChevronUpIcon className="h-4 w-4 mr-1" />
+                              Show less
+                            </>
+                          ) : (
+                            <>
+                              <ChevronDownIcon className="h-4 w-4 mr-1" />
+                              Show {grouped.starred.length - 3} more
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </Card>
+                  </div>
                 );
               } else if (
                 grouped.today.length > 0 ||
@@ -983,8 +1292,8 @@ const SnapshotsPanel: React.FC = () => {
                 Object.keys(grouped.older).length > 0
               ) {
                 // Show explainer about starring if we have snapshots but none are starred
-                return (
-                  <Card className="p-4 bg-blue-50">
+                sections.push(
+                  <Card key="star-explainer" className="p-4 bg-blue-50">
                     <Typography
                       variant="body"
                       className="flex items-center text-blue-700"
@@ -999,86 +1308,14 @@ const SnapshotsPanel: React.FC = () => {
                 );
               }
 
-              return null;
-            })()}
-
-            {/* Recent Snapshots Card */}
-            <Card className="p-0 overflow-hidden border rounded-lg">
-              {(() => {
-                // Group snapshots by date and starred status
-                type GroupedSnapshots = {
-                  starred: [string, WindowSnapshot][];
-                  today: [string, WindowSnapshot][];
-                  yesterday: [string, WindowSnapshot][];
-                  older: { [date: string]: [string, WindowSnapshot][] };
-                  invalid: [string, WindowSnapshot][];
-                };
-
-                const grouped = Object.entries(snapshots)
-                  // Sort snapshots by timestamp, newest first
-                  .sort(([, a], [, b]) => {
-                    // Add checks for potentially undefined timestamps
-                    const timeA = a?.timestamp ?? 0;
-                    const timeB = b?.timestamp ?? 0;
-                    return timeB - timeA;
-                  })
-                  // Group by date
-                  .reduce(
-                    (acc: GroupedSnapshots, [oopsWindowId, snapshot]) => {
-                      // Skip starred snapshots for the history section
-                      if (snapshot?.isStarred) {
-                        return acc;
-                      }
-
-                      // Skip invalid snapshots in grouping
-                      if (!snapshot || !snapshot.timestamp) {
-                        acc.invalid.push([oopsWindowId, snapshot]);
-                        return acc;
-                      }
-
-                      const date = new Date(snapshot.timestamp);
-                      const today = new Date();
-                      const yesterday = new Date();
-                      yesterday.setDate(yesterday.getDate() - 1);
-
-                      // Format for comparison (YYYY-MM-DD)
-                      const dateStr = date.toISOString().split("T")[0];
-                      const todayStr = today.toISOString().split("T")[0];
-                      const yesterdayStr = yesterday
-                        .toISOString()
-                        .split("T")[0];
-
-                      if (dateStr === todayStr) {
-                        acc.today.push([oopsWindowId, snapshot]);
-                      } else if (dateStr === yesterdayStr) {
-                        acc.yesterday.push([oopsWindowId, snapshot]);
-                      } else {
-                        // Group older snapshots by date
-                        const shortDate = date.toLocaleDateString(undefined, {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                        });
-
-                        if (!acc.older[shortDate]) {
-                          acc.older[shortDate] = [];
-                        }
-                        acc.older[shortDate].push([oopsWindowId, snapshot]);
-                      }
-
-                      return acc;
-                    },
-                    {
-                      starred: [],
-                      today: [],
-                      yesterday: [],
-                      older: {},
-                      invalid: [],
-                    }
-                  );
-
-                // Render sections with dividers
-                const sections: JSX.Element[] = [];
+              // Recent Snapshots Card
+              if (
+                grouped.today.length > 0 ||
+                grouped.yesterday.length > 0 ||
+                Object.keys(grouped.older).length > 0 ||
+                grouped.invalid.length > 0
+              ) {
+                const recentSections = [];
 
                 // Today section
                 if (grouped.today.length > 0) {
@@ -1090,15 +1327,14 @@ const SnapshotsPanel: React.FC = () => {
                   const hasMoreToday =
                     grouped.today.length > visibleTodayItems.length;
 
-                  sections.push(
+                  recentSections.push(
                     <div key="today-section">
-                      <div className="snapshot-section-header rounded-t-lg">
+                      <div className="p-2 bg-gray-100/60 border-b border-gray-200">
                         <Typography
-                          variant="h4"
-                          className="font-semibold flex items-center text-primary-dark"
+                          variant="body-sm"
+                          className="font-medium text-gray-600"
                         >
-                          <ClockSolidIcon className="h-4 w-4 text-primary mr-1.5" />
-                          Recent Snapshots
+                          Today
                         </Typography>
                       </div>
                       {visibleTodayItems.map(([id, snapshot], index) =>
@@ -1130,7 +1366,7 @@ const SnapshotsPanel: React.FC = () => {
                   const hasMoreYesterday =
                     grouped.yesterday.length > visibleYesterdayItems.length;
 
-                  sections.push(
+                  recentSections.push(
                     <div key="yesterday-section">
                       <div className="p-2 bg-gray-100/60 border-b border-gray-200">
                         <Typography
@@ -1160,185 +1396,41 @@ const SnapshotsPanel: React.FC = () => {
                   );
                 }
 
-                // Older sections
-                const olderDates = Object.keys(grouped.older).sort((a, b) => {
-                  // Try to sort by date, newest first
-                  // This is a simplistic approach as we're sorting strings
-                  // A more accurate approach would be to parse the dates
-                  return b.localeCompare(a);
-                });
-
-                // Only show first few old date sections initially, add more on scroll
-                // If visibleOlderDates is empty, start with first few dates
-                if (visibleOlderDates.size === 0 && olderDates.length > 0) {
-                  // Initially show first 2 dates
-                  const initialDates = olderDates.slice(0, 2);
-                  setVisibleOlderDates(new Set(initialDates));
-
-                  // Set initial items per date
-                  const initialItems: Record<string, number> = {};
-                  initialDates.forEach((date) => {
-                    initialItems[date] = 5; // Show 5 items per date initially
-                  });
-                  setVisibleOlderItems(initialItems);
-                }
-
-                // Render visible older date sections
-                for (const date of olderDates) {
-                  const items = grouped.older[date];
-
-                  // If this date isn't in our visible set and we have some dates visible already, skip it
-                  if (
-                    !visibleOlderDates.has(date) &&
-                    visibleOlderDates.size > 0
-                  ) {
-                    continue;
-                  }
-
-                  // Get number of visible items for this date
-                  const visibleCount = visibleOlderItems[date] || 5;
-                  const visibleItems = items.slice(0, visibleCount);
-                  const hasMoreItems = items.length > visibleItems.length;
-
-                  sections.push(
-                    <div key={`date-${date}`}>
-                      <div className="p-2 bg-gray-100/60 border-b border-gray-200">
-                        <Typography
-                          variant="body-sm"
-                          className="font-medium text-gray-600"
-                        >
-                          {date}
-                        </Typography>
-                      </div>
-                      {visibleItems.map(([id, snapshot], index) =>
-                        renderSnapshotItem(id, snapshot, index)
-                      )}
-                      {hasMoreItems && (
-                        <div className="p-2 bg-gray-50 border-t border-gray-200 text-center">
-                          <Typography
-                            variant="caption"
-                            className="text-gray-500"
-                          >
-                            Scroll to load more (
-                            {items.length - visibleItems.length} remaining)
+                // Add the Recent Snapshots section with its subsections
+                sections.push(
+                  <div key="recent-section" className="space-y-2">
+                    <div className="snapshot-section-header">
+                      <Typography
+                        variant="h4"
+                        className="font-semibold flex items-center text-primary-dark"
+                      >
+                        <ClockSolidIcon className="h-4 w-4 text-primary mr-1.5" />
+                        Recent Snapshots
+                      </Typography>
+                    </div>
+                    <Card className="p-0 overflow-hidden border rounded-lg">
+                      {recentSections.length > 0 ? (
+                        recentSections
+                      ) : (
+                        <div className="p-5">
+                          <Typography variant="body">
+                            No recent snapshots available.
                           </Typography>
                         </div>
                       )}
-                    </div>
-                  );
-                }
 
-                // Show a "Load More Dates" button if we have more dates to display
-                const remainingDates = olderDates.filter(
-                  (date) => !visibleOlderDates.has(date)
+                      {/* Load more trigger */}
+                      <div
+                        ref={loadMoreTriggerRef}
+                        className="h-4 opacity-0 -mb-4"
+                      />
+                    </Card>
+                  </div>
                 );
-                if (remainingDates.length > 0 && visibleOlderDates.size > 0) {
-                  sections.push(
-                    <div
-                      key="load-more-dates"
-                      className="p-3 bg-gray-50 hover:bg-gray-100 cursor-pointer text-center border-t border-gray-200"
-                      onClick={() => {
-                        // Add next 2 dates to visible dates
-                        const nextDates = remainingDates.slice(0, 2);
-                        setVisibleOlderDates(
-                          (prev) => new Set([...prev, ...nextDates])
-                        );
+              }
 
-                        // Initialize items for these dates
-                        setVisibleOlderItems((prev) => {
-                          const newItems = { ...prev };
-                          nextDates.forEach((date) => {
-                            newItems[date] = 5; // Show 5 items initially
-                          });
-                          return newItems;
-                        });
-                      }}
-                    >
-                      <Typography
-                        variant="body-sm"
-                        className="text-primary font-medium"
-                      >
-                        Load {Math.min(2, remainingDates.length)} more date
-                        {remainingDates.length !== 1 ? "s" : ""} (
-                        {remainingDates.length} remaining)
-                      </Typography>
-                    </div>
-                  );
-                }
-
-                // Invalid snapshots section (if any)
-                if (grouped.invalid.length > 0) {
-                  const visibleInvalid = grouped.invalid.slice(0, 3); // Only show first 3 invalid
-
-                  sections.push(
-                    <div key="invalid-section">
-                      <div className="p-2 bg-gray-100/60 border-b border-gray-200">
-                        <Typography
-                          variant="body-sm"
-                          className="font-medium text-gray-600"
-                        >
-                          Corrupted or Invalid Snapshots
-                        </Typography>
-                      </div>
-                      {visibleInvalid.map(([id, snapshot], index) => {
-                        // Validate snapshot has the minimum required structure
-                        const isValidSnapshot =
-                          snapshot &&
-                          typeof snapshot === "object" &&
-                          snapshot.timestamp;
-
-                        // Render the item directly or an invalid state item
-                        return isValidSnapshot ? (
-                          renderSnapshotItem(id, snapshot, index)
-                        ) : (
-                          <ListItem
-                            key={`${id}-invalid`}
-                            title="Invalid Snapshot"
-                            subtitle="This snapshot is corrupted or has invalid data"
-                            metadata=""
-                            className="hover:bg-blue-50 transition-colors duration-150 border-b border-gray-200 last:border-b-0"
-                            actions={
-                              <div className="flex space-x-1">
-                                <IconButton
-                                  size="sm"
-                                  variant="danger"
-                                  onClick={() => handleDelete(id)}
-                                  title="Delete snapshot"
-                                >
-                                  <TrashIcon className="h-4 w-4" />
-                                </IconButton>
-                              </div>
-                            }
-                          />
-                        );
-                      })}
-                    </div>
-                  );
-                }
-
-                // Add a load more trigger div at the end
-                sections.push(
-                  <div
-                    key="load-more-trigger"
-                    ref={loadMoreTriggerRef}
-                    className="h-4 opacity-0 -mb-4" // Reduced height and negative margin to avoid spacing
-                  />
-                );
-
-                // If no sections to show
-                if (sections.length === 0) {
-                  return (
-                    <div className="p-5">
-                      <Typography variant="body">
-                        No recent snapshots available.
-                      </Typography>
-                    </div>
-                  );
-                }
-
-                return sections;
-              })()}
-            </Card>
+              return sections;
+            })()}
           </>
         )}
       </div>
@@ -1348,8 +1440,23 @@ const SnapshotsPanel: React.FC = () => {
         isOpen={confirmDialog.isOpen}
         onClose={closeConfirmDialog}
         onConfirm={confirmDelete}
-        title="Delete Snapshot"
-        message="Are you sure you want to delete this snapshot? This action cannot be undone."
+        title={
+          confirmDialog.isBulkDelete ? "Delete Snapshots" : "Delete Snapshot"
+        }
+        message={
+          confirmDialog.isBulkDelete
+            ? `Are you sure you want to delete ${selectedSnapshots.size} snapshots? This action cannot be undone.`
+            : "Are you sure you want to delete this snapshot? This action cannot be undone."
+        }
+      />
+
+      {/* Merge Confirmation Dialog */}
+      <MergeConfirmationDialog
+        isOpen={showMergeConfirm}
+        onClose={() => setShowMergeConfirm(false)}
+        onConfirmNew={() => mergeSnapshots(true)}
+        onConfirmReplace={() => mergeSnapshots(false)}
+        selectedCount={selectedSnapshots.size}
       />
     </div>
   );

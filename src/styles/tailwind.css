@@ -116,9 +116,9 @@
     @apply bg-white bg-opacity-20;
   }
   
-  /* Fix for snapshot headers to ensure they fill the container width and top edge */
+  /* Snapshot section header - moved outside of card */
   .snapshot-section-header {
-    @apply p-3 bg-primary/5 border-b border-gray-200 -mt-[1px] -mx-[1px] rounded-t-[inherit] w-[calc(100%+2px)];
+    @apply font-semibold flex items-center text-primary-dark mb-4 py-sm;
   }
 }
 
