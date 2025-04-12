@@ -3,7 +3,11 @@
  * Handles creating, storing, and retrieving window snapshots
  */
 
-import { getOopsWindowId } from "./windowTracking";
+import {
+  getOopsWindowId,
+  getWindowIdMap,
+  saveWindowIdMap,
+} from "./windowTracking";
 import browser, { supportsTabGroups } from "./browserAPI";
 import {
   TabData,
@@ -340,11 +344,26 @@ export const createWindowSnapshot = async (
       isStarred: existingSnapshot?.isStarred,
     };
 
-    // Update the snapshot for this window
-    snapshots[oopsWindowId] = snapshot;
+    // Check for similar snapshots and merge if needed
+    const { mergedSnapshots, mergedInto } = mergeSnapshots(
+      snapshot,
+      oopsWindowId,
+      snapshots
+    );
+
+    // If this snapshot was merged into another, update the window ID mapping
+    if (mergedInto && mergedInto !== oopsWindowId) {
+      // We need to update the window ID mapping to point to the snapshot it was merged into
+      const idMap = await getWindowIdMap();
+      idMap[windowId] = mergedInto;
+      await saveWindowIdMap(idMap);
+      console.log(
+        `Updated window ${windowId} mapping to point to merged snapshot ${mergedInto}`
+      );
+    }
 
     // Save back to storage
-    await saveAllSnapshots(snapshots);
+    await saveAllSnapshots(mergedSnapshots);
 
     // Also cache the window state for potential window closure
     // This ensures we have the latest state cached at all times
@@ -352,7 +371,7 @@ export const createWindowSnapshot = async (
       timestamp: Date.now(),
       tabsData,
       groups,
-      oopsWindowId,
+      oopsWindowId: mergedInto || oopsWindowId, // Use merged ID if available
     });
     console.log(
       `Cached state for window ${windowId} with ${tabs.length} tabs along with snapshot`
@@ -892,5 +911,328 @@ export const cleanupSnapshots = async (
   } catch (err) {
     console.error("Error cleaning up snapshots:", err);
     return false;
+  }
+};
+
+/**
+ * Check if two snapshots are similar based on their URLs and structure
+ * @param snapshot1 First snapshot to compare
+ * @param snapshot2 Second snapshot to compare
+ * @returns An object with similarity percentage and details
+ */
+const calculateSnapshotSimilarity = (
+  snapshot1: WindowSnapshot,
+  snapshot2: WindowSnapshot
+): {
+  similarityPercentage: number;
+  urlMatchPercentage: number;
+  groupSimilarity: number;
+  timestamp: number;
+} => {
+  // Extract URLs from each snapshot
+  const urls1 = new Set(snapshot1.tabs.map((tab) => tab.url));
+  const urls2 = new Set(snapshot2.tabs.map((tab) => tab.url));
+
+  // Count URL matches
+  let matches = 0;
+  for (const url of urls1) {
+    if (urls2.has(url)) matches++;
+  }
+
+  // Calculate URL match percentage using the smaller set as denominator for higher accuracy
+  const urlMatchPercentage = (matches / Math.min(urls1.size, urls2.size)) * 100;
+
+  // Calculate group similarity (0-1 scale)
+  let groupSimilarity = 0;
+  if (snapshot1.groups.length > 0 && snapshot2.groups.length > 0) {
+    // Compare group titles and structure
+    const titles1 = new Set(
+      snapshot1.groups.map((g) => g.title).filter(Boolean)
+    );
+    const titles2 = new Set(
+      snapshot2.groups.map((g) => g.title).filter(Boolean)
+    );
+
+    // Calculate title overlap
+    let titleMatches = 0;
+    for (const title of titles1) {
+      if (title && titles2.has(title)) titleMatches++;
+    }
+
+    const titleSimilarity =
+      titles1.size > 0
+        ? titleMatches / Math.min(titles1.size, titles2.size)
+        : 0;
+
+    // Group count similarity
+    const countSimilarity =
+      1 -
+      Math.abs(snapshot1.groups.length - snapshot2.groups.length) /
+        Math.max(snapshot1.groups.length, snapshot2.groups.length, 1);
+
+    groupSimilarity = (titleSimilarity + countSimilarity) / 2;
+  } else if (snapshot1.groups.length === 0 && snapshot2.groups.length === 0) {
+    // Both have no groups, consider them similar in this aspect
+    groupSimilarity = 1;
+  }
+
+  // Calculate overall similarity (URL match is weighted more)
+  const similarityPercentage =
+    urlMatchPercentage * 0.7 + groupSimilarity * 100 * 0.3;
+
+  // Use newer timestamp to determine the newer snapshot
+  const timestamp = Math.max(snapshot1.timestamp, snapshot2.timestamp);
+
+  return {
+    similarityPercentage,
+    urlMatchPercentage,
+    groupSimilarity,
+    timestamp,
+  };
+};
+
+/**
+ * Merge similar snapshots to prevent duplicates
+ * @param newSnapshot The new snapshot to check for merging
+ * @param newOopsWindowId The oopsWindowId of the new snapshot
+ * @param allSnapshots The map of all existing snapshots
+ * @param similarityThreshold The threshold for considering snapshots similar (default: 75%)
+ * @returns Map of snapshots with duplicates merged
+ */
+export const mergeSnapshots = (
+  newSnapshot: WindowSnapshot,
+  newOopsWindowId: string,
+  allSnapshots: SnapshotMap,
+  similarityThreshold: number = 75
+): { mergedSnapshots: SnapshotMap; mergedInto: string | null } => {
+  // Create a copy of all snapshots to work with
+  const mergedSnapshots: SnapshotMap = { ...allSnapshots };
+
+  // Add the new snapshot to the map
+  mergedSnapshots[newOopsWindowId] = newSnapshot;
+
+  // If there are less than 2 snapshots, no merging needed
+  if (Object.keys(mergedSnapshots).length < 2) {
+    return { mergedSnapshots, mergedInto: null };
+  }
+
+  // Check for similar snapshots
+  let mostSimilarId: string | null = null;
+  let highestSimilarity = 0;
+
+  for (const [oopsWindowId, snapshot] of Object.entries(mergedSnapshots)) {
+    // Skip comparing with itself
+    if (oopsWindowId === newOopsWindowId) continue;
+
+    const similarity = calculateSnapshotSimilarity(newSnapshot, snapshot);
+
+    if (
+      similarity.similarityPercentage >= similarityThreshold &&
+      similarity.similarityPercentage > highestSimilarity
+    ) {
+      highestSimilarity = similarity.similarityPercentage;
+      mostSimilarId = oopsWindowId;
+    }
+  }
+
+  // If we found a similar snapshot, merge them
+  if (mostSimilarId) {
+    const existingSnapshot = mergedSnapshots[mostSimilarId];
+
+    // Decide which snapshot to keep based on:
+    // 1. Starred status (keep starred snapshots)
+    // 2. Custom name (prefer snapshots with custom names)
+    // 3. Tab count (prefer the one with more tabs)
+    // 4. Timestamp (prefer newer snapshot)
+    let keepExisting = false;
+
+    if (existingSnapshot.isStarred && !newSnapshot.isStarred) {
+      keepExisting = true;
+    } else if (existingSnapshot.customName && !newSnapshot.customName) {
+      keepExisting = true;
+    } else if (existingSnapshot.tabs.length > newSnapshot.tabs.length) {
+      keepExisting = true;
+    }
+
+    if (keepExisting) {
+      // Update the timestamp to the newer one
+      mergedSnapshots[mostSimilarId] = {
+        ...existingSnapshot,
+        timestamp: Math.max(existingSnapshot.timestamp, newSnapshot.timestamp),
+      };
+      // Remove the new snapshot
+      delete mergedSnapshots[newOopsWindowId];
+      console.log(
+        `Merged new snapshot for ${newOopsWindowId} into existing snapshot ${mostSimilarId} (${highestSimilarity.toFixed(
+          2
+        )}% similarity)`
+      );
+      return { mergedSnapshots, mergedInto: mostSimilarId };
+    } else {
+      // Keep the new snapshot, but preserve any valuable info from the existing one
+      mergedSnapshots[newOopsWindowId] = {
+        ...newSnapshot,
+        isStarred: existingSnapshot.isStarred || newSnapshot.isStarred,
+        customName: newSnapshot.customName || existingSnapshot.customName,
+      };
+      // Remove the existing snapshot
+      delete mergedSnapshots[mostSimilarId];
+      console.log(
+        `Merged existing snapshot ${mostSimilarId} into new snapshot ${newOopsWindowId} (${highestSimilarity.toFixed(
+          2
+        )}% similarity)`
+      );
+      return { mergedSnapshots, mergedInto: newOopsWindowId };
+    }
+  }
+
+  // No similar snapshots found, return original map with the new snapshot
+  return { mergedSnapshots, mergedInto: null };
+};
+
+/**
+ * Deduplicate snapshots by finding and merging similar ones
+ * Can be called periodically or manually to clean up duplicates
+ * @param similarityThreshold The threshold for considering snapshots similar (default: 75%)
+ * @returns Promise resolving to the number of merges performed
+ */
+export const deduplicateSnapshots = async (
+  similarityThreshold: number = 75
+): Promise<number> => {
+  try {
+    // Get all snapshots
+    const snapshots = await getAllSnapshots();
+    const snapshotIds = Object.keys(snapshots);
+
+    // If there are less than 2 snapshots, no deduplication needed
+    if (snapshotIds.length < 2) {
+      return 0;
+    }
+
+    // Track the number of merges performed
+    let mergeCount = 0;
+
+    // Keep track of oopsWindowIds that were merged and their new mappings
+    const idMappings: Record<string, string> = {};
+
+    // Compare each snapshot with others
+    for (let i = 0; i < snapshotIds.length; i++) {
+      const id1 = snapshotIds[i];
+
+      // Skip if this snapshot was already merged into another
+      if (idMappings[id1]) continue;
+
+      const snapshot1 = snapshots[id1];
+      if (!snapshot1) continue; // Skip if somehow missing
+
+      for (let j = i + 1; j < snapshotIds.length; j++) {
+        const id2 = snapshotIds[j];
+
+        // Skip if this snapshot was already merged into another
+        if (idMappings[id2]) continue;
+
+        const snapshot2 = snapshots[id2];
+        if (!snapshot2) continue; // Skip if somehow missing
+
+        // Calculate similarity
+        const similarity = calculateSnapshotSimilarity(snapshot1, snapshot2);
+
+        // If similar enough, merge them
+        if (similarity.similarityPercentage >= similarityThreshold) {
+          // Decide which to keep (similar logic to mergeSnapshots)
+          let keepFirst = true;
+
+          if (snapshot2.isStarred && !snapshot1.isStarred) {
+            keepFirst = false;
+          } else if (snapshot2.customName && !snapshot1.customName) {
+            keepFirst = false;
+          } else if (snapshot2.tabs.length > snapshot1.tabs.length) {
+            keepFirst = false;
+          }
+
+          if (keepFirst) {
+            // Keep snapshot1, merge snapshot2 into it
+            snapshots[id1] = {
+              ...snapshot1,
+              timestamp: Math.max(snapshot1.timestamp, snapshot2.timestamp),
+              isStarred: snapshot1.isStarred || snapshot2.isStarred,
+              customName: snapshot1.customName || snapshot2.customName,
+            };
+
+            // Remove snapshot2
+            delete snapshots[id2];
+
+            // Track the mapping
+            idMappings[id2] = id1;
+
+            console.log(
+              `Deduplicated: Merged snapshot ${id2} into ${id1} (${similarity.similarityPercentage.toFixed(
+                2
+              )}% similarity)`
+            );
+          } else {
+            // Keep snapshot2, merge snapshot1 into it
+            snapshots[id2] = {
+              ...snapshot2,
+              timestamp: Math.max(snapshot1.timestamp, snapshot2.timestamp),
+              isStarred: snapshot2.isStarred || snapshot1.isStarred,
+              customName: snapshot2.customName || snapshot1.customName,
+            };
+
+            // Remove snapshot1
+            delete snapshots[id1];
+
+            // Track the mapping
+            idMappings[id1] = id2;
+
+            console.log(
+              `Deduplicated: Merged snapshot ${id1} into ${id2} (${similarity.similarityPercentage.toFixed(
+                2
+              )}% similarity)`
+            );
+
+            // Since we're removing snapshot1, we need to break and move to the next i
+            break;
+          }
+
+          mergeCount++;
+        }
+      }
+    }
+
+    if (mergeCount > 0) {
+      // Save the updated snapshots
+      await saveAllSnapshots(snapshots);
+
+      // Update window ID mappings for any merged snapshots
+      if (Object.keys(idMappings).length > 0) {
+        // Get current window ID map
+        const idMap = await getWindowIdMap();
+        let updatedMap = false;
+
+        // For each browser window, check if its oopsWindowId was merged
+        for (const [windowIdStr, oopsWindowId] of Object.entries(idMap)) {
+          const mergedInto = idMappings[oopsWindowId];
+          if (mergedInto) {
+            // Update the mapping to point to the snapshot it was merged into
+            idMap[parseInt(windowIdStr, 10)] = mergedInto;
+            updatedMap = true;
+            console.log(
+              `Updated window ${windowIdStr} mapping to point to merged snapshot ${mergedInto}`
+            );
+          }
+        }
+
+        // Save the updated mappings if changed
+        if (updatedMap) {
+          await saveWindowIdMap(idMap);
+        }
+      }
+    }
+
+    return mergeCount;
+  } catch (err) {
+    console.error("Error deduplicating snapshots:", err);
+    return 0;
   }
 };

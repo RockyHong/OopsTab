@@ -156,6 +156,19 @@ export const initializeWindowTracking = async (): Promise<void> => {
   }
 
   console.log("Window tracking initialized");
+
+  // Run snapshot deduplication to clean up any duplicate snapshots
+  try {
+    // We need to import the snapshot functions here
+    // Using dynamic import to avoid circular dependencies
+    const { deduplicateSnapshots } = await import("./snapshotManager");
+    const mergeCount = await deduplicateSnapshots();
+    if (mergeCount > 0) {
+      console.log(`Deduplicated ${mergeCount} snapshots during initialization`);
+    }
+  } catch (err) {
+    console.error("Error deduplicating snapshots during initialization:", err);
+  }
 };
 
 /**
@@ -174,7 +187,9 @@ export const checkForReopenedWindow = async (
 
     // We need to import the snapshot functions here
     // Using dynamic import to avoid circular dependencies
-    const { getAllSnapshots } = await import("./snapshotManager");
+    const { getAllSnapshots, deduplicateSnapshots } = await import(
+      "./snapshotManager"
+    );
 
     // Get all snapshots
     const snapshots = await getAllSnapshots();
@@ -244,6 +259,22 @@ export const checkForReopenedWindow = async (
             bestMatch.oopsWindowId
           } (${bestMatch.matchPercentage.toFixed(2)}% URL match)`
         );
+
+        // Run deduplication after associating a window to clean up any potential duplicates
+        try {
+          const mergeCount = await deduplicateSnapshots();
+          if (mergeCount > 0) {
+            console.log(
+              `Deduplicated ${mergeCount} snapshots after reopened window detection`
+            );
+          }
+        } catch (err) {
+          console.error(
+            "Error deduplicating snapshots after reopened window detection:",
+            err
+          );
+        }
+
         return true;
       }
     }
