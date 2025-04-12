@@ -9,7 +9,7 @@
   }
   
   body {
-    @apply bg-background text-text-primary;
+    @apply bg-white text-text-primary;
   }
   
   /* Heading typography styles */
@@ -83,6 +83,32 @@
   
   .form-label {
     @apply block text-text-secondary text-body-sm mb-xs;
+  }
+  
+  /* Header and navigation styles */
+  .app-header {
+    @apply bg-primary shadow-sm sticky top-0 z-10;
+  }
+  
+  .header-content {
+    @apply max-w-5xl mx-auto px-4 py-3 flex items-center justify-between;
+  }
+  
+  .header-title {
+    @apply text-white;
+  }
+  
+  .header-nav {
+    @apply flex space-x-2;
+  }
+  
+  .header-nav-button {
+    @apply text-white rounded-full p-1 h-8 w-8 flex items-center justify-center transition-all;
+    @apply hover:bg-white hover:bg-opacity-20 focus:bg-white focus:bg-opacity-10;
+  }
+  
+  .header-nav-button-active {
+    @apply bg-white bg-opacity-20;
   }
 }
 

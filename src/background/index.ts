@@ -54,7 +54,7 @@ const debouncedSnapshotCreation = debounce((windowId: number | undefined) => {
 
 // Listen for extension icon clicks
 browser.action.onClicked.addListener(() => {
-  browser.tabs.create({ url: "oopstab.html" });
+  browser.tabs.create({ url: "options.html" });
 });
 
 // Listen for window creation to assign oopsWindowId

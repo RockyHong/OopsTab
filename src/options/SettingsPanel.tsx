@@ -9,28 +9,6 @@ import {
   deleteAllSnapshots,
 } from "../utils";
 import { OopsConfig, DEFAULT_CONFIG, DEFAULT_STORAGE_STATS } from "../types";
-import {
-  HashRouter as Router,
-  Routes,
-  Route,
-  Link,
-  useNavigate,
-  useLocation,
-} from "react-router-dom";
-import {
-  BeakerIcon,
-  ChevronLeftIcon,
-  Cog6ToothIcon,
-  HomeIcon,
-} from "@heroicons/react/24/solid";
-import OopsTab from "../pages/oopstab/OopsTab";
-import browser from "../utils/browserAPI";
-
-// Import DebugPanel conditionally only in development mode
-const DebugPanel =
-  process.env.NODE_ENV === "development"
-    ? require("../pages/oopstab/DebugPanel").default
-    : () => null;
 
 // Main Settings component
 const SettingsPanel: React.FC = () => {
@@ -48,7 +26,6 @@ const SettingsPanel: React.FC = () => {
       windows: 0,
     },
   });
-  const navigate = useNavigate();
 
   // Format bytes to human-readable format (KB, MB)
   const formatBytes = (bytes: number): string => {
@@ -165,21 +142,8 @@ const SettingsPanel: React.FC = () => {
     <div className="p-5 max-w-3xl mx-auto space-y-5">
       <div className="flex justify-between items-center">
         <Typography variant="h2" className="text-primary">
-          OopsTab Settings
+          Settings
         </Typography>
-
-        {/* Only show debug button in development mode */}
-        {process.env.NODE_ENV === "development" && (
-          <Button
-            variant="passive"
-            size="sm"
-            onClick={() => navigate("/debug")}
-            className="flex items-center space-x-1"
-          >
-            <BeakerIcon className="h-4 w-4" />
-            <span>Debug Tools</span>
-          </Button>
-        )}
       </div>
 
       {/* Storage Management Card */}
@@ -340,90 +304,4 @@ const SettingsPanel: React.FC = () => {
   );
 };
 
-const Navigation: React.FC = () => {
-  const location = useLocation();
-  const currentPath = location.pathname;
-
-  return (
-    <header className="app-header">
-      <div className="header-content">
-        <Typography variant="h2" className="header-title">
-          OopsTab
-        </Typography>
-        <nav className="header-nav">
-          <Link to="/">
-            <button
-              className={`header-nav-button ${
-                currentPath === "/" ? "header-nav-button-active" : ""
-              }`}
-              aria-label="Home"
-            >
-              <HomeIcon className="h-5 w-5" />
-            </button>
-          </Link>
-          <Link to="/settings">
-            <button
-              className={`header-nav-button ${
-                currentPath === "/settings" ? "header-nav-button-active" : ""
-              }`}
-              aria-label="Settings"
-            >
-              <Cog6ToothIcon className="h-5 w-5" />
-            </button>
-          </Link>
-          {process.env.NODE_ENV === "development" && (
-            <Link to="/debug">
-              <button
-                className={`header-nav-button ${
-                  currentPath === "/debug" ? "header-nav-button-active" : ""
-                }`}
-                aria-label="Debug"
-              >
-                <BeakerIcon className="h-5 w-5" />
-              </button>
-            </Link>
-          )}
-        </nav>
-      </div>
-    </header>
-  );
-};
-
-// Debug View Component
-const DebugView: React.FC = () => {
-  // Only render in development mode
-  if (process.env.NODE_ENV !== "development") {
-    return (
-      <div className="p-5 max-w-3xl mx-auto">
-        <Typography variant="h2" className="text-primary">
-          Debug Tools Unavailable
-        </Typography>
-        <p className="mt-4">
-          Debug tools are only available in development mode.
-        </p>
-      </div>
-    );
-  }
-
-  return <DebugPanel />;
-};
-
-// Main Options component with routing
-const Options: React.FC = () => {
-  return (
-    <Router>
-      <div className="min-h-screen bg-white">
-        <Navigation />
-        <main className="max-w-5xl mx-auto px-4 py-6">
-          <Routes>
-            <Route path="/" element={<OopsTab />} />
-            <Route path="/settings" element={<SettingsPanel />} />
-            <Route path="/debug" element={<DebugView />} />
-          </Routes>
-        </main>
-      </div>
-    </Router>
-  );
-};
-
-export default Options;
+export default SettingsPanel;

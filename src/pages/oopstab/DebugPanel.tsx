@@ -157,6 +157,19 @@ const DebugPanel: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      <div className="flex justify-between items-center mb-4">
+        <Typography variant="h2" className="text-primary">
+          Debug Tools
+        </Typography>
+      </div>
+
+      <div className="bg-yellow-50 p-3 rounded-md border border-yellow-200 mb-4">
+        <Typography variant="body-sm" className="text-yellow-800">
+          ⚠️ These tools are for development and testing purposes only. They are
+          not available in production builds.
+        </Typography>
+      </div>
+
       {/* Storage Statistics Card */}
       <Card className="p-5">
         <Typography variant="h2" className="mb-4">

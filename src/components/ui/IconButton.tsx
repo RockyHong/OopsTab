@@ -7,7 +7,8 @@ type IconButtonVariant =
   | "passive"
   | "danger"
   | "warning"
-  | "secondary";
+  | "secondary"
+  | "header";
 
 interface IconButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>,
@@ -29,6 +30,8 @@ const IconButton: React.FC<IconButtonProps> = ({
     danger: "text-danger hover:bg-danger hover:bg-opacity-10",
     warning: "text-yellow-600 hover:bg-yellow-100",
     secondary: "text-gray-500 hover:bg-gray-100",
+    header:
+      "text-white hover:bg-white hover:bg-opacity-20 focus:bg-white focus:bg-opacity-10",
   };
 
   const sizeClasses = {

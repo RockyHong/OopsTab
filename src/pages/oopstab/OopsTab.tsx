@@ -9,7 +9,6 @@ import {
   Toggle,
 } from "../../components/ui";
 import {
-  Cog6ToothIcon,
   TrashIcon,
   DocumentDuplicateIcon,
   ArrowTopRightOnSquareIcon,
@@ -67,33 +66,12 @@ const formatDate = (timestamp: number): string => {
 };
 
 const OopsTab: React.FC = () => {
-  // Open the extension's options page
-  const openOptionsPage = () => {
-    browser.runtime.openOptionsPage();
-  };
-
   return (
-    <div className="min-h-screen bg-surface">
-      <header className="bg-white shadow-sm sticky top-0 z-10">
-        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
-          <Typography variant="h2" className="text-primary">
-            OopsTab
-          </Typography>
-          <div className="flex space-x-2">
-            <IconButton
-              size="md"
-              onClick={openOptionsPage}
-              aria-label="Settings"
-            >
-              <Cog6ToothIcon className="h-5 w-5" />
-            </IconButton>
-          </div>
-        </div>
-      </header>
-
-      <main className="max-w-5xl mx-auto px-4 py-6">
-        <SnapshotsPanel />
-      </main>
+    <div>
+      <Typography variant="h2" className="text-primary mb-4">
+        Window Snapshots
+      </Typography>
+      <SnapshotsPanel />
     </div>
   );
 };
@@ -754,7 +732,7 @@ const SnapshotsPanel: React.FC = () => {
       {/* Snapshots */}
       <div className="mb-6 space-y-4">
         <div className="flex items-center justify-between mb-4">
-          <Typography variant="h2">Window Snapshots</Typography>
+          <div className="flex-1"></div>
           <Button
             variant="primary"
             size="sm"
