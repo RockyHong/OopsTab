@@ -30,8 +30,6 @@ const ListItem: React.FC<ListItemProps> = ({
       )}
       onClick={onClick}
     >
-      {icon && <div className="mr-3 text-gray-500 flex-shrink-0">{icon}</div>}
-
       <div className="flex-1 min-w-0">
         {typeof title === "string" ? (
           <Typography

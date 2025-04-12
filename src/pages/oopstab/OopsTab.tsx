@@ -671,10 +671,10 @@ const SnapshotsPanel: React.FC = () => {
         </IconButton>
       </div>
     ) : (
-      <div className="flex items-center">
+      <div className="flex items-center space-x-1">
         <Typography
           variant="body"
-          className="font-medium text-gray-900 truncate mr-2"
+          className="font-medium text-gray-900 truncate mr-1 mb-0 leading-tight"
         >
           {snapshot.customName || getDefaultName()}
         </Typography>
@@ -686,7 +686,7 @@ const SnapshotsPanel: React.FC = () => {
             setIsEditing(true);
           }}
           title="Edit name"
-          className="opacity-50 hover:opacity-100"
+          className="opacity-50 hover:opacity-100 flex-shrink-0"
         >
           <PencilIcon className="h-3 w-3" />
         </IconButton>
@@ -703,7 +703,8 @@ const SnapshotsPanel: React.FC = () => {
   // Render a snapshot list item
   const renderSnapshotItem = (
     oopsWindowId: string,
-    snapshot: WindowSnapshot
+    snapshot: WindowSnapshot,
+    index: number
   ) => {
     const isCurrentlyOpen = openWindows.has(oopsWindowId);
 
@@ -731,6 +732,7 @@ const SnapshotsPanel: React.FC = () => {
               </IconButton>
             </div>
           }
+          className="hover:bg-blue-50 transition-colors duration-150 border-b border-gray-200 last:border-b-0"
         />
       );
     }
@@ -818,6 +820,7 @@ const SnapshotsPanel: React.FC = () => {
             </IconButton>
           </div>
         }
+        className="hover:bg-blue-50 transition-colors duration-150 border-b border-gray-200 last:border-b-0"
       />
     );
   };
@@ -949,8 +952,8 @@ const SnapshotsPanel: React.FC = () => {
                     </div>
 
                     {/* Starred snapshot items */}
-                    {visibleStarredItems.map(([id, snapshot]) =>
-                      renderSnapshotItem(id, snapshot)
+                    {visibleStarredItems.map(([id, snapshot], index) =>
+                      renderSnapshotItem(id, snapshot, index)
                     )}
 
                     {/* Show more/less button */}
@@ -1098,8 +1101,8 @@ const SnapshotsPanel: React.FC = () => {
                           Recent Snapshots
                         </Typography>
                       </div>
-                      {visibleTodayItems.map(([id, snapshot]) =>
-                        renderSnapshotItem(id, snapshot)
+                      {visibleTodayItems.map(([id, snapshot], index) =>
+                        renderSnapshotItem(id, snapshot, index)
                       )}
                       {hasMoreToday && (
                         <div className="p-2 bg-gray-50 border-t border-gray-200 text-center">
@@ -1137,8 +1140,8 @@ const SnapshotsPanel: React.FC = () => {
                           Yesterday
                         </Typography>
                       </div>
-                      {visibleYesterdayItems.map(([id, snapshot]) =>
-                        renderSnapshotItem(id, snapshot)
+                      {visibleYesterdayItems.map(([id, snapshot], index) =>
+                        renderSnapshotItem(id, snapshot, index)
                       )}
                       {hasMoreYesterday && (
                         <div className="p-2 bg-gray-50 border-t border-gray-200 text-center">
@@ -1207,8 +1210,8 @@ const SnapshotsPanel: React.FC = () => {
                           {date}
                         </Typography>
                       </div>
-                      {visibleItems.map(([id, snapshot]) =>
-                        renderSnapshotItem(id, snapshot)
+                      {visibleItems.map(([id, snapshot], index) =>
+                        renderSnapshotItem(id, snapshot, index)
                       )}
                       {hasMoreItems && (
                         <div className="p-2 bg-gray-50 border-t border-gray-200 text-center">
@@ -1277,7 +1280,7 @@ const SnapshotsPanel: React.FC = () => {
                           Corrupted or Invalid Snapshots
                         </Typography>
                       </div>
-                      {visibleInvalid.map(([id, snapshot]) => {
+                      {visibleInvalid.map(([id, snapshot], index) => {
                         // Validate snapshot has the minimum required structure
                         const isValidSnapshot =
                           snapshot &&
@@ -1286,13 +1289,14 @@ const SnapshotsPanel: React.FC = () => {
 
                         // Render the item directly or an invalid state item
                         return isValidSnapshot ? (
-                          renderSnapshotItem(id, snapshot)
+                          renderSnapshotItem(id, snapshot, index)
                         ) : (
                           <ListItem
                             key={`${id}-invalid`}
                             title="Invalid Snapshot"
                             subtitle="This snapshot is corrupted or has invalid data"
                             metadata=""
+                            className="hover:bg-blue-50 transition-colors duration-150 border-b border-gray-200 last:border-b-0"
                             actions={
                               <div className="flex space-x-1">
                                 <IconButton
