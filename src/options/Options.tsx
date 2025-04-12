@@ -156,9 +156,9 @@ const SettingsPanel: React.FC = () => {
   };
 
   return (
-    <div className="p-6 max-w-3xl mx-auto space-y-6">
+    <div className="p-5 max-w-3xl mx-auto space-y-5">
       <div className="flex justify-between items-center">
-        <Typography variant="h1" className="text-primary">
+        <Typography variant="h2" className="text-primary">
           OopsTab Settings
         </Typography>
 
@@ -177,29 +177,29 @@ const SettingsPanel: React.FC = () => {
       </div>
 
       {/* Storage Management Card */}
-      <Card className="p-5">
-        <Typography variant="h2" className="mb-4">
+      <Card>
+        <Typography variant="h3" className="mb-3">
           Storage Management
         </Typography>
 
         {isLoading ? (
-          <div className="p-4 text-center">
+          <div className="p-3 text-center">
             <Typography variant="body">
               Loading storage information...
             </Typography>
           </div>
         ) : (
-          <div className="space-y-5">
-            <div className="mt-4 grid grid-cols-2 gap-4">
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
               <div className="bg-gray-50 p-3 rounded-md text-center">
-                <div className="text-xl font-semibold text-primary">
+                <div className="text-lg font-semibold text-primary">
                   {formatBytes(storageStatus.usedBytes)}
                 </div>
                 <div className="text-xs text-gray-500">Storage Usage</div>
               </div>
 
               <div className="bg-gray-50 p-3 rounded-md text-center">
-                <div className="text-xl font-semibold text-primary">
+                <div className="text-lg font-semibold text-primary">
                   {storageStatus.itemCounts.windows}
                 </div>
                 <div className="text-xs text-gray-500">Windows Snapshots</div>
@@ -209,12 +209,12 @@ const SettingsPanel: React.FC = () => {
             {/* Warning message if approaching limit */}
             {storageStatus.isApproachingLimit &&
               storageStatus.warningMessage && (
-                <div className="mt-4 p-2 rounded-md text-sm bg-yellow-100 text-yellow-800">
+                <div className="p-2 rounded-md text-sm bg-yellow-100 text-yellow-800">
                   {storageStatus.warningMessage}
                 </div>
               )}
 
-            <div className="mt-4 flex justify-end">
+            <div className="flex justify-end">
               <Button
                 variant="danger"
                 size="sm"
@@ -225,7 +225,7 @@ const SettingsPanel: React.FC = () => {
               </Button>
             </div>
 
-            <div className="text-sm text-gray-600 mt-4">
+            <div className="text-sm text-gray-600">
               <p>
                 OopsTab stores your window snapshots in browser storage, which
                 has limited space. Each window keeps only its most recent state.
@@ -244,15 +244,15 @@ const SettingsPanel: React.FC = () => {
       </Card>
 
       {/* Snapshot Settings Card */}
-      <Card className="p-5">
-        <div className="space-y-6">
+      <Card>
+        <div className="space-y-4">
           <div>
-            <Typography variant="h2" className="mb-4">
+            <Typography variant="h3" className="mb-3">
               Snapshot Settings
             </Typography>
 
             {isLoading ? (
-              <div className="p-4 text-center">
+              <div className="p-3 text-center">
                 <Typography variant="body">Loading settings...</Typography>
               </div>
             ) : (
@@ -311,7 +311,7 @@ const SettingsPanel: React.FC = () => {
             )}
           </div>
 
-          <div className="pt-4 flex justify-between">
+          <div className="pt-3 flex justify-between">
             <Button
               variant="primary"
               onClick={saveSettings}
@@ -341,17 +341,17 @@ const DebugView: React.FC = () => {
   // Only render in development mode
   if (process.env.NODE_ENV !== "development") {
     return (
-      <div className="p-6 max-w-3xl mx-auto">
-        <Typography variant="h1" className="text-primary">
+      <div className="p-5 max-w-3xl mx-auto">
+        <Typography variant="h2" className="text-primary">
           Debug Tools Unavailable
         </Typography>
-        <Card className="p-5 mt-6">
+        <Card className="mt-4">
           <Typography variant="body">
             Debug tools are only available in development mode.
           </Typography>
           <Button
             variant="primary"
-            className="mt-4"
+            className="mt-3"
             onClick={() => navigate("/")}
           >
             Back to Settings
@@ -362,8 +362,8 @@ const DebugView: React.FC = () => {
   }
 
   return (
-    <div className="p-6 max-w-3xl mx-auto">
-      <div className="flex items-center mb-6">
+    <div className="p-5 max-w-3xl mx-auto">
+      <div className="flex items-center mb-4">
         <IconButton
           size="sm"
           variant="passive"
@@ -372,12 +372,12 @@ const DebugView: React.FC = () => {
         >
           <ChevronLeftIcon className="h-5 w-5" />
         </IconButton>
-        <Typography variant="h1" className="text-primary">
+        <Typography variant="h2" className="text-primary">
           Debug Tools
         </Typography>
       </div>
-      <div className="bg-yellow-50 p-3 rounded-md border border-yellow-200 mb-6">
-        <Typography variant="body" className="text-sm text-yellow-800">
+      <div className="bg-yellow-50 p-3 rounded-md border border-yellow-200 mb-4">
+        <Typography variant="body-sm" className="text-yellow-800">
           ⚠️ These tools are for development and testing purposes only. They are
           not available in production builds.
         </Typography>
