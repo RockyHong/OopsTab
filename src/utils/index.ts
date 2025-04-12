@@ -9,6 +9,20 @@ export * from "./restoreManager";
 export * from "./testingUtils";
 export * from "./browserAPI";
 
+// Re-export types and constants for backward compatibility
+// Note: Components should eventually switch to importing from "../types" directly
+export type {
+  WindowSnapshot,
+  TabData,
+  TabGroupData,
+  SnapshotMap,
+  StorageStats,
+  OopsConfig,
+} from "../types";
+
+// Re-export constants
+export { DEFAULT_STORAGE_STATS, DEFAULT_CONFIG } from "../types";
+
 // Add debounce utility
 
 /**

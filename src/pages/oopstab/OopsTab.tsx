@@ -27,39 +27,23 @@ import {
 } from "@heroicons/react/24/outline";
 import {
   getAllSnapshots,
-  WindowSnapshot,
   restoreSession,
   deleteSnapshot,
   renameSnapshot,
   getStorageStats,
   updateStorageStats,
   checkStorageLimits,
-  DEFAULT_STORAGE_STATS,
-  SnapshotMap,
   toggleSnapshotStar,
   cleanupSnapshots,
 } from "../../utils";
+import {
+  WindowSnapshot,
+  DEFAULT_STORAGE_STATS,
+  SnapshotMap,
+  TabData,
+  TabGroupData,
+} from "../../types";
 import browser from "../../utils/browserAPI";
-
-// Add TabData interface
-interface TabData {
-  id?: number;
-  windowId?: number;
-  title?: string;
-  url?: string;
-  favIconUrl?: string;
-  faviconUrl?: string;
-  groupId?: number;
-  index?: number;
-}
-
-// Add TabGroupData interface to match the one in utils
-interface TabGroupData {
-  id: number;
-  title?: string;
-  color?: string;
-  collapsed?: boolean;
-}
 
 // Helper to format date
 const formatDate = (timestamp: number): string => {

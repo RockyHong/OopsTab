@@ -3,7 +3,8 @@
  * Handles restoring window sessions from snapshots
  */
 
-import { WindowSnapshot, getWindowSnapshot } from "./snapshotManager";
+import { getWindowSnapshot } from "./snapshotManager";
+import { WindowSnapshot } from "../types";
 import {
   findWindowByOopsId,
   getWindowIdMap,

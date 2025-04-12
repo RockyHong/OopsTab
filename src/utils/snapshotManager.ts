@@ -5,75 +5,23 @@
 
 import { getOopsWindowId } from "./windowTracking";
 import browser, { supportsTabGroups } from "./browserAPI";
+import {
+  TabData,
+  TabGroupData,
+  WindowSnapshot,
+  SnapshotMap,
+  OriginalTabData,
+  StorageStats,
+  DEFAULT_STORAGE_STATS,
+  OopsConfig,
+  DEFAULT_CONFIG,
+  DEFAULT_STORAGE_QUOTA,
+  STORAGE_KEYS,
+  WindowStateCache,
+} from "../types";
 
-// Storage keys
-const SNAPSHOTS_KEY = "oopsSnapshots";
-const CONFIG_KEY = "oopsConfig";
-const STORAGE_STATS_KEY = "oopsStorageStats";
-const DEFAULT_STORAGE_QUOTA = 5 * 1024 * 1024; // 5MB default quota
-
-// Storage statistics interface
-export interface StorageStats {
-  totalBytes: number;
-  usedBytes: number;
-  lastUpdate: number;
-  itemCounts: {
-    windows: number;
-  };
-}
-
-// Default storage stats
-export const DEFAULT_STORAGE_STATS: StorageStats = {
-  totalBytes: DEFAULT_STORAGE_QUOTA,
-  usedBytes: 0,
-  lastUpdate: 0,
-  itemCounts: {
-    windows: 0,
-  },
-};
-
-// Default configuration
-export interface OopsConfig {
-  autosaveDebounce: number; // milliseconds
-}
-
-export const DEFAULT_CONFIG: OopsConfig = {
-  autosaveDebounce: 5000, // 5 seconds
-};
-
-// Types for snapshot data
-export interface TabData {
-  id: number;
-  url: string;
-  title: string;
-  pinned: boolean;
-  groupId: number;
-  index: number;
-  faviconUrl?: string;
-}
-
-// Define proper type for tab group color
-type TabGroupColor = any; // Using any for cross-browser compatibility
-
-export interface TabGroupData {
-  id: number;
-  title?: string;
-  color?: TabGroupColor;
-  collapsed?: boolean;
-}
-
-export interface WindowSnapshot {
-  timestamp: number;
-  tabs: TabData[];
-  groups: TabGroupData[];
-  customName?: string; // Custom name for the snapshot
-  isStarred?: boolean; // Flag to mark starred snapshots
-}
-
-// New simplified interface - direct mapping of oopsWindowId to snapshot
-export interface SnapshotMap {
-  [oopsWindowId: string]: WindowSnapshot;
-}
+// Extract constants from STORAGE_KEYS
+const { SNAPSHOTS_KEY, CONFIG_KEY, STORAGE_STATS_KEY } = STORAGE_KEYS;
 
 // Add a Set to track oopsWindowIds that have been deleted but still have active windows
 // This helps us recover snapshots for windows that were deleted in the UI
@@ -82,15 +30,7 @@ const deletedWindowSnapshots = new Set<string>();
 // Add a temporary cache to store the last known state of windows
 // This is used when windows are closed and we need to create a final snapshot
 // Map of windowId to cached snapshot data
-const windowStateCache = new Map<
-  number,
-  {
-    timestamp: number;
-    tabsData: TabData[];
-    groups: TabGroupData[];
-    oopsWindowId: string | null;
-  }
->();
+const windowStateCache = new Map<number, WindowStateCache>();
 
 /**
  * Get the current configuration
@@ -158,9 +98,7 @@ export const saveAllSnapshots = async (
  * @param tab The tab to check
  * @returns Original tab data if it's a middleware tab, or null if not
  */
-const extractOriginalTabData = (
-  tab: any
-): { url: string; title: string; faviconUrl?: string } | null => {
+const extractOriginalTabData = (tab: any): OriginalTabData | null => {
   try {
     // Check if this is our middleware page
     const extensionUrl = browser.runtime.getURL("middleware-tab.html");

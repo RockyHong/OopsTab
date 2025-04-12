@@ -50,3 +50,13 @@ export interface BaseComponentProps {
   className?: string;
   children?: React.ReactNode;
 }
+
+// Class value type for the classnames utility
+export type ClassValue =
+  | string
+  | number
+  | boolean
+  | undefined
+  | null
+  | Record<string, boolean | undefined | null>
+  | ClassValue[];

@@ -5,13 +5,8 @@
 
 import { getAllSnapshots, getWindowIdMap } from ".";
 import browser, { supportsTabGroups } from "./browserAPI";
-import {
-  WindowSnapshot,
-  TabData,
-  saveAllSnapshots,
-  updateStorageStats,
-  SnapshotMap,
-} from "./snapshotManager";
+import { saveAllSnapshots, updateStorageStats } from "./snapshotManager";
+import { WindowSnapshot, TabData, SnapshotMap } from "../types";
 
 // Type declaration for window.oopsTab global
 declare global {

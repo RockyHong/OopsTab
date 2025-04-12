@@ -3,13 +3,7 @@
  * Based on the clsx library recommended in the style guide
  */
 
-type ClassValue =
-  | string
-  | number
-  | boolean
-  | undefined
-  | null
-  | Record<string, boolean | undefined | null>;
+import { ClassValue } from "../types";
 
 /**
  * Merges multiple class names into a single string

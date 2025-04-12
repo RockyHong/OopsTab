@@ -3,13 +3,13 @@ import { Typography, Card, Button } from "../../components/ui";
 import {
   getStorageStats,
   updateStorageStats,
-  StorageStats,
   setupDebugActions,
   clearAllData,
   createTestWindow,
   createBulkTestSnapshots,
   logStorageState,
 } from "../../utils";
+import { StorageStats } from "../../types";
 
 // Helper to format date (copied from OopsTab to keep the component self-contained)
 const formatDate = (timestamp: number): string => {

@@ -4,9 +4,10 @@
  */
 
 import browser from "./browserAPI";
+import { WindowIdMap, STORAGE_KEYS } from "../types";
 
-// Storage key for window ID mappings
-const WINDOW_ID_MAP_KEY = "oopsWindowIdMap";
+// Extract constants from STORAGE_KEYS
+const { WINDOW_ID_MAP_KEY } = STORAGE_KEYS;
 
 /**
  * Generate a UUID v4 for window identification
@@ -24,22 +25,20 @@ export const generateUUID = (): string => {
  * Get the current window ID mapping
  * @returns Promise resolving to the window ID map
  */
-export const getWindowIdMap = async (): Promise<Record<number, string>> => {
+export const getWindowIdMap = async (): Promise<WindowIdMap> => {
   const result = await browser.storage.local.get([WINDOW_ID_MAP_KEY]);
   // Create an empty record if not found
   if (!result[WINDOW_ID_MAP_KEY]) {
-    return {} as Record<number, string>;
+    return {} as WindowIdMap;
   }
-  return result[WINDOW_ID_MAP_KEY] as Record<number, string>;
+  return result[WINDOW_ID_MAP_KEY] as WindowIdMap;
 };
 
 /**
  * Save the window ID mapping to storage
  * @param idMap The window ID mapping to save
  */
-export const saveWindowIdMap = async (
-  idMap: Record<number, string>
-): Promise<void> => {
+export const saveWindowIdMap = async (idMap: WindowIdMap): Promise<void> => {
   await browser.storage.local.set({ [WINDOW_ID_MAP_KEY]: idMap });
   console.log("Window ID map saved:", idMap);
 };

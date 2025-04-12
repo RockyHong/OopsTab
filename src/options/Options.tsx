@@ -3,14 +3,12 @@ import { Typography, Card, Button, Toggle, IconButton } from "../components/ui";
 import {
   getConfig,
   saveConfig,
-  OopsConfig,
-  DEFAULT_CONFIG,
   getStorageStats,
   updateStorageStats,
   checkStorageLimits,
-  DEFAULT_STORAGE_STATS,
   deleteAllSnapshots,
 } from "../utils";
+import { OopsConfig, DEFAULT_CONFIG, DEFAULT_STORAGE_STATS } from "../types";
 import {
   HashRouter as Router,
   Routes,

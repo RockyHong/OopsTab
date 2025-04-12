@@ -6,16 +6,17 @@
  */
 
 import browserPolyfill from "webextension-polyfill";
+import { BrowserInfo } from "../types";
 
 // For Chrome and other browsers that support the webextension standard
 const api = browserPolyfill;
 
-// Detect browser type
-let isChrome = false;
-let isFirefox = false;
-
-// Feature detection for specific browser features
-let supportsTabGroups = false;
+// Initialize browser info with default values
+const browserInfo: BrowserInfo = {
+  isChrome: false,
+  isFirefox: false,
+  supportsTabGroups: false,
+};
 
 // Initialize browser detection
 const detectBrowser = async () => {
@@ -24,20 +25,25 @@ const detectBrowser = async () => {
     const userAgent = navigator.userAgent.toLowerCase();
 
     // Detect Firefox
-    isFirefox = userAgent.includes("firefox");
+    browserInfo.isFirefox = userAgent.includes("firefox");
 
     // Detect Chrome (includes Chrome, Edge, Opera, etc. that use Chromium)
-    isChrome = userAgent.includes("chrome") || userAgent.includes("chromium");
+    browserInfo.isChrome =
+      userAgent.includes("chrome") || userAgent.includes("chromium");
 
     // Feature detection
-    supportsTabGroups = typeof api.tabGroups !== "undefined";
+    browserInfo.supportsTabGroups = typeof api.tabGroups !== "undefined";
 
     console.log(
       `Browser detected: ${
-        isFirefox ? "Firefox" : isChrome ? "Chrome" : "Unknown"
+        browserInfo.isFirefox
+          ? "Firefox"
+          : browserInfo.isChrome
+          ? "Chrome"
+          : "Unknown"
       }`
     );
-    console.log(`Tab Groups API supported: ${supportsTabGroups}`);
+    console.log(`Tab Groups API supported: ${browserInfo.supportsTabGroups}`);
   } catch (err) {
     console.error("Error detecting browser:", err);
   }
@@ -48,4 +54,4 @@ detectBrowser();
 
 // Exporting the browser API and detection results
 export default api;
-export { isChrome, isFirefox, supportsTabGroups };
+export const { isChrome, isFirefox, supportsTabGroups } = browserInfo;
