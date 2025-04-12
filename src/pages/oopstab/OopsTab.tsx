@@ -337,11 +337,80 @@ const SnapshotsPanel: React.FC = () => {
   });
   const scrollPositionRef = useRef<number>(0); // Ref to store scroll position
 
+  // Lazy loading states
+  const [visibleToday, setVisibleToday] = useState<number>(10); // Initial number of today's snapshots to show
+  const [visibleYesterday, setVisibleYesterday] = useState<number>(5); // Initial number of yesterday's snapshots to show
+  const [visibleOlderDates, setVisibleOlderDates] = useState<Set<string>>(
+    new Set()
+  ); // Track visible older dates
+  const [visibleOlderItems, setVisibleOlderItems] = useState<
+    Record<string, number>
+  >({}); // Track items per older date
+  const loadMoreObserverRef = useRef<IntersectionObserver | null>(null);
+  const loadMoreTriggerRef = useRef<HTMLDivElement | null>(null);
+
   // State for confirmation dialog
   const [confirmDialog, setConfirmDialog] = useState({
     isOpen: false,
     windowId: "",
   });
+
+  // Initialize intersection observer for infinite scrolling
+  useEffect(() => {
+    const observerOptions = {
+      root: null, // viewport
+      rootMargin: "200px", // Start loading more before reaching the end
+      threshold: 0.1, // Trigger when 10% of the element is visible
+    };
+
+    const observerCallback: IntersectionObserverCallback = (entries) => {
+      const [entry] = entries;
+      if (entry.isIntersecting && !isLoading) {
+        // Increase visible items when user scrolls near the end
+        setVisibleToday((prev) => prev + 10);
+        setVisibleYesterday((prev) => prev + 5);
+
+        // For older dates, add more items to currently visible dates
+        setVisibleOlderItems((prev) => {
+          const newItems = { ...prev };
+          visibleOlderDates.forEach((date) => {
+            newItems[date] = (newItems[date] || 5) + 3;
+          });
+          return newItems;
+        });
+      }
+    };
+
+    loadMoreObserverRef.current = new IntersectionObserver(
+      observerCallback,
+      observerOptions
+    );
+
+    return () => {
+      if (loadMoreObserverRef.current) {
+        loadMoreObserverRef.current.disconnect();
+      }
+    };
+  }, [
+    isLoading,
+    visibleOlderDates,
+    visibleToday,
+    visibleYesterday,
+    visibleOlderItems,
+  ]);
+
+  // Observe the load more trigger element
+  useEffect(() => {
+    const observer = loadMoreObserverRef.current;
+    const triggerElement = loadMoreTriggerRef.current;
+
+    if (observer && triggerElement) {
+      observer.observe(triggerElement);
+      return () => {
+        observer.unobserve(triggerElement);
+      };
+    }
+  }, []); // This effect runs once after observer is set up
 
   // Load storage status
   const loadStorageStatus = async () => {
@@ -378,6 +447,22 @@ const SnapshotsPanel: React.FC = () => {
 
       // Also update storage status when loading snapshots
       await loadStorageStatus();
+
+      // Don't reset visible counts when refreshing - this maintains the user's view state
+      // Only reset if we detect a page reload via storage
+      const sessionKey = "oopsTabSession";
+      const sessionId = Math.random().toString(36).substring(2);
+
+      const stored = localStorage.getItem(sessionKey);
+      if (!stored) {
+        // First load or page reload - reset visible counts
+        setVisibleToday(10);
+        setVisibleYesterday(5);
+        setVisibleOlderDates(new Set());
+        setVisibleOlderItems({});
+        // Store new session
+        localStorage.setItem(sessionKey, sessionId);
+      }
     } catch (err) {
       console.error("Error loading snapshots:", err);
     } finally {
@@ -989,6 +1074,14 @@ const SnapshotsPanel: React.FC = () => {
 
                 // Today section
                 if (grouped.today.length > 0) {
+                  // Apply lazy loading - only show the number of items in visibleToday
+                  const visibleTodayItems = grouped.today.slice(
+                    0,
+                    visibleToday
+                  );
+                  const hasMoreToday =
+                    grouped.today.length > visibleTodayItems.length;
+
                   sections.push(
                     <div key="today-section">
                       <div className="p-3 bg-primary/5 border-b border-gray-200">
@@ -999,8 +1092,20 @@ const SnapshotsPanel: React.FC = () => {
                           Recent Snapshots
                         </Typography>
                       </div>
-                      {grouped.today.map(([id, snapshot]) =>
+                      {visibleTodayItems.map(([id, snapshot]) =>
                         renderSnapshotItem(id, snapshot)
+                      )}
+                      {hasMoreToday && (
+                        <div className="p-2 bg-gray-50 border-t border-gray-200 text-center">
+                          <Typography
+                            variant="caption"
+                            className="text-gray-500"
+                          >
+                            Scroll to load more (
+                            {grouped.today.length - visibleTodayItems.length}{" "}
+                            remaining)
+                          </Typography>
+                        </div>
                       )}
                     </div>
                   );
@@ -1008,6 +1113,14 @@ const SnapshotsPanel: React.FC = () => {
 
                 // Yesterday section
                 if (grouped.yesterday.length > 0) {
+                  // Apply lazy loading - only show the number of items in visibleYesterday
+                  const visibleYesterdayItems = grouped.yesterday.slice(
+                    0,
+                    visibleYesterday
+                  );
+                  const hasMoreYesterday =
+                    grouped.yesterday.length > visibleYesterdayItems.length;
+
                   sections.push(
                     <div key="yesterday-section">
                       <div className="p-2 bg-gray-100/60 border-b border-gray-200">
@@ -1018,8 +1131,21 @@ const SnapshotsPanel: React.FC = () => {
                           Yesterday
                         </Typography>
                       </div>
-                      {grouped.yesterday.map(([id, snapshot]) =>
+                      {visibleYesterdayItems.map(([id, snapshot]) =>
                         renderSnapshotItem(id, snapshot)
+                      )}
+                      {hasMoreYesterday && (
+                        <div className="p-2 bg-gray-50 border-t border-gray-200 text-center">
+                          <Typography
+                            variant="caption"
+                            className="text-gray-500"
+                          >
+                            Scroll to load more (
+                            {grouped.yesterday.length -
+                              visibleYesterdayItems.length}{" "}
+                            remaining)
+                          </Typography>
+                        </div>
                       )}
                     </div>
                   );
@@ -1033,8 +1159,38 @@ const SnapshotsPanel: React.FC = () => {
                   return b.localeCompare(a);
                 });
 
+                // Only show first few old date sections initially, add more on scroll
+                // If visibleOlderDates is empty, start with first few dates
+                if (visibleOlderDates.size === 0 && olderDates.length > 0) {
+                  // Initially show first 2 dates
+                  const initialDates = olderDates.slice(0, 2);
+                  setVisibleOlderDates(new Set(initialDates));
+
+                  // Set initial items per date
+                  const initialItems: Record<string, number> = {};
+                  initialDates.forEach((date) => {
+                    initialItems[date] = 5; // Show 5 items per date initially
+                  });
+                  setVisibleOlderItems(initialItems);
+                }
+
+                // Render visible older date sections
                 for (const date of olderDates) {
                   const items = grouped.older[date];
+
+                  // If this date isn't in our visible set and we have some dates visible already, skip it
+                  if (
+                    !visibleOlderDates.has(date) &&
+                    visibleOlderDates.size > 0
+                  ) {
+                    continue;
+                  }
+
+                  // Get number of visible items for this date
+                  const visibleCount = visibleOlderItems[date] || 5;
+                  const visibleItems = items.slice(0, visibleCount);
+                  const hasMoreItems = items.length > visibleItems.length;
+
                   sections.push(
                     <div key={`date-${date}`}>
                       <div className="p-2 bg-gray-100/60 border-b border-gray-200">
@@ -1045,15 +1201,66 @@ const SnapshotsPanel: React.FC = () => {
                           {date}
                         </Typography>
                       </div>
-                      {items.map(([id, snapshot]) =>
+                      {visibleItems.map(([id, snapshot]) =>
                         renderSnapshotItem(id, snapshot)
                       )}
+                      {hasMoreItems && (
+                        <div className="p-2 bg-gray-50 border-t border-gray-200 text-center">
+                          <Typography
+                            variant="caption"
+                            className="text-gray-500"
+                          >
+                            Scroll to load more (
+                            {items.length - visibleItems.length} remaining)
+                          </Typography>
+                        </div>
+                      )}
+                    </div>
+                  );
+                }
+
+                // Show a "Load More Dates" button if we have more dates to display
+                const remainingDates = olderDates.filter(
+                  (date) => !visibleOlderDates.has(date)
+                );
+                if (remainingDates.length > 0 && visibleOlderDates.size > 0) {
+                  sections.push(
+                    <div
+                      key="load-more-dates"
+                      className="p-3 bg-gray-50 hover:bg-gray-100 cursor-pointer text-center border-t border-gray-200"
+                      onClick={() => {
+                        // Add next 2 dates to visible dates
+                        const nextDates = remainingDates.slice(0, 2);
+                        setVisibleOlderDates(
+                          (prev) => new Set([...prev, ...nextDates])
+                        );
+
+                        // Initialize items for these dates
+                        setVisibleOlderItems((prev) => {
+                          const newItems = { ...prev };
+                          nextDates.forEach((date) => {
+                            newItems[date] = 5; // Show 5 items initially
+                          });
+                          return newItems;
+                        });
+                      }}
+                    >
+                      <Typography
+                        variant="body-sm"
+                        className="text-primary font-medium"
+                      >
+                        Load {Math.min(2, remainingDates.length)} more date
+                        {remainingDates.length !== 1 ? "s" : ""} (
+                        {remainingDates.length} remaining)
+                      </Typography>
                     </div>
                   );
                 }
 
                 // Invalid snapshots section (if any)
                 if (grouped.invalid.length > 0) {
+                  const visibleInvalid = grouped.invalid.slice(0, 3); // Only show first 3 invalid
+
                   sections.push(
                     <div key="invalid-section">
                       <div className="p-2 bg-gray-100/60 border-b border-gray-200">
@@ -1064,7 +1271,7 @@ const SnapshotsPanel: React.FC = () => {
                           Corrupted or Invalid Snapshots
                         </Typography>
                       </div>
-                      {grouped.invalid.map(([id, snapshot]) => {
+                      {visibleInvalid.map(([id, snapshot]) => {
                         // Validate snapshot has the minimum required structure
                         const isValidSnapshot =
                           snapshot &&
@@ -1098,6 +1305,15 @@ const SnapshotsPanel: React.FC = () => {
                     </div>
                   );
                 }
+
+                // Add a load more trigger div at the end
+                sections.push(
+                  <div
+                    key="load-more-trigger"
+                    ref={loadMoreTriggerRef}
+                    className="h-4 opacity-0 -mb-4" // Reduced height and negative margin to avoid spacing
+                  />
+                );
 
                 // If no sections to show
                 if (sections.length === 0) {
