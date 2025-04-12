@@ -73,7 +73,7 @@
   
   /* Content container - consistent across all pages */
   .content-container {
-    @apply max-w-5xl mx-auto px-4 py-6;
+    @apply mx-auto p-5 max-w-5xl w-full;
   }
   
   /* Section spacing */
@@ -114,6 +114,11 @@
   
   .header-nav-button-active {
     @apply bg-white bg-opacity-20;
+  }
+  
+  /* Fix for snapshot headers to ensure they fill the container width and top edge */
+  .snapshot-section-header {
+    @apply p-3 bg-primary/5 border-b border-gray-200 -mt-[1px] -mx-[1px] rounded-t-[inherit] w-[calc(100%+2px)];
   }
 }
 

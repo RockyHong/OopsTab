@@ -19,6 +19,8 @@ import {
   ChevronDownIcon,
   ChevronUpIcon,
   WindowIcon,
+  ArrowPathIcon,
+  ClockIcon as ClockSolidIcon,
 } from "@heroicons/react/24/solid";
 import {
   ClockIcon,
@@ -68,9 +70,6 @@ const formatDate = (timestamp: number): string => {
 const OopsTab: React.FC = () => {
   return (
     <div className="content-container">
-      <Typography variant="h2" className="text-primary mb-4">
-        Window Snapshots
-      </Typography>
       <SnapshotsPanel />
     </div>
   );
@@ -825,20 +824,26 @@ const SnapshotsPanel: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {/* Title and Refresh Button */}
+      <div className="flex items-center justify-between mb-4">
+        <Typography variant="h2" className="text-primary">
+          Window Snapshots
+        </Typography>
+        <IconButton
+          variant="primary"
+          size="sm"
+          onClick={loadSnapshots}
+          disabled={isLoading}
+          title="Refresh Snapshots"
+        >
+          <ArrowPathIcon
+            className={`h-5 w-5 ${isLoading ? "animate-spin" : ""}`}
+          />
+        </IconButton>
+      </div>
+
       {/* Snapshots */}
       <div className="mb-6 space-y-4">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex-1"></div>
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={loadSnapshots}
-            disabled={isLoading}
-          >
-            {isLoading ? "Loading..." : "Refresh"}
-          </Button>
-        </div>
-
         {isLoading ? (
           <Card className="p-5 flex justify-center items-center">
             <Typography variant="body">Loading snapshots...</Typography>
@@ -932,8 +937,8 @@ const SnapshotsPanel: React.FC = () => {
                   : grouped.starred.slice(0, 3);
 
                 return (
-                  <Card className="p-0 overflow-hidden">
-                    <div className="p-3 bg-primary/5 border-b border-gray-200">
+                  <Card className="p-0 overflow-hidden border rounded-lg">
+                    <div className="snapshot-section-header">
                       <Typography
                         variant="h4"
                         className="font-semibold flex items-center text-primary-dark"
@@ -995,7 +1000,7 @@ const SnapshotsPanel: React.FC = () => {
             })()}
 
             {/* Recent Snapshots Card */}
-            <Card className="p-0 overflow-hidden">
+            <Card className="p-0 overflow-hidden border rounded-lg">
               {(() => {
                 // Group snapshots by date and starred status
                 type GroupedSnapshots = {
@@ -1084,11 +1089,12 @@ const SnapshotsPanel: React.FC = () => {
 
                   sections.push(
                     <div key="today-section">
-                      <div className="p-3 bg-primary/5 border-b border-gray-200">
+                      <div className="snapshot-section-header rounded-t-lg">
                         <Typography
                           variant="h4"
-                          className="font-semibold text-primary-dark"
+                          className="font-semibold flex items-center text-primary-dark"
                         >
+                          <ClockSolidIcon className="h-4 w-4 text-primary mr-1.5" />
                           Recent Snapshots
                         </Typography>
                       </div>
