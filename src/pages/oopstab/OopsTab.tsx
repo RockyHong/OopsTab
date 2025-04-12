@@ -720,45 +720,174 @@ const SnapshotsPanel: React.FC = () => {
           </Card>
         ) : (
           <Card className="p-0 overflow-hidden">
-            {Object.entries(snapshots)
-              // Sort snapshots by timestamp, newest first
-              .sort(([, a], [, b]) => {
-                // Add checks for potentially undefined timestamps
-                const timeA = a?.timestamp ?? 0;
-                const timeB = b?.timestamp ?? 0;
-                return timeB - timeA;
-              })
-              .map(([oopsWindowId, snapshot]) => {
-                // Validate snapshot has the minimum required structure
-                const isValidSnapshot =
-                  snapshot &&
-                  typeof snapshot === "object" &&
-                  snapshot.timestamp;
+            {(() => {
+              // Group snapshots by date
+              type GroupedSnapshots = {
+                today: [string, WindowSnapshot][];
+                yesterday: [string, WindowSnapshot][];
+                older: { [date: string]: [string, WindowSnapshot][] };
+                invalid: [string, WindowSnapshot][];
+              };
 
-                // Render the item directly or an invalid state item
-                return isValidSnapshot ? (
-                  renderSnapshotItem(oopsWindowId, snapshot)
-                ) : (
-                  <ListItem
-                    key={`${oopsWindowId}-invalid`}
-                    title="Invalid Snapshot"
-                    subtitle="This snapshot is corrupted or has invalid data"
-                    icon={<DocumentDuplicateIcon className="h-5 w-5" />}
-                    actions={
-                      <div className="flex space-x-1">
-                        <IconButton
-                          size="sm"
-                          variant="danger"
-                          onClick={() => handleDelete(oopsWindowId)}
-                          title="Delete snapshot"
-                        >
-                          <TrashIcon className="h-4 w-4" />
-                        </IconButton>
-                      </div>
+              const grouped = Object.entries(snapshots)
+                // Sort snapshots by timestamp, newest first
+                .sort(([, a], [, b]) => {
+                  // Add checks for potentially undefined timestamps
+                  const timeA = a?.timestamp ?? 0;
+                  const timeB = b?.timestamp ?? 0;
+                  return timeB - timeA;
+                })
+                // Group by date
+                .reduce(
+                  (acc: GroupedSnapshots, [oopsWindowId, snapshot]) => {
+                    // Skip invalid snapshots in grouping
+                    if (!snapshot || !snapshot.timestamp) {
+                      acc.invalid.push([oopsWindowId, snapshot]);
+                      return acc;
                     }
-                  />
+
+                    const date = new Date(snapshot.timestamp);
+                    const today = new Date();
+                    const yesterday = new Date();
+                    yesterday.setDate(yesterday.getDate() - 1);
+
+                    // Format for comparison (YYYY-MM-DD)
+                    const dateStr = date.toISOString().split("T")[0];
+                    const todayStr = today.toISOString().split("T")[0];
+                    const yesterdayStr = yesterday.toISOString().split("T")[0];
+
+                    if (dateStr === todayStr) {
+                      acc.today.push([oopsWindowId, snapshot]);
+                    } else if (dateStr === yesterdayStr) {
+                      acc.yesterday.push([oopsWindowId, snapshot]);
+                    } else {
+                      // Group older snapshots by date
+                      const shortDate = date.toLocaleDateString(undefined, {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      });
+
+                      if (!acc.older[shortDate]) {
+                        acc.older[shortDate] = [];
+                      }
+                      acc.older[shortDate].push([oopsWindowId, snapshot]);
+                    }
+
+                    return acc;
+                  },
+                  { today: [], yesterday: [], older: {}, invalid: [] }
                 );
-              })}
+
+              // Render sections with dividers
+              const sections: JSX.Element[] = [];
+
+              // Today section
+              if (grouped.today.length > 0) {
+                sections.push(
+                  <div key="today-section">
+                    <div className="px-4 py-2 bg-gray-50 border-b border-gray-200">
+                      <Typography
+                        variant="body"
+                        className="font-medium text-gray-600"
+                      >
+                        Today
+                      </Typography>
+                    </div>
+                    {grouped.today.map(([oopsWindowId, snapshot]) =>
+                      renderSnapshotItem(oopsWindowId, snapshot)
+                    )}
+                  </div>
+                );
+              }
+
+              // Yesterday section
+              if (grouped.yesterday.length > 0) {
+                sections.push(
+                  <div key="yesterday-section">
+                    <div className="px-4 py-2 bg-gray-50 border-b border-gray-200">
+                      <Typography
+                        variant="body"
+                        className="font-medium text-gray-600"
+                      >
+                        Yesterday
+                      </Typography>
+                    </div>
+                    {grouped.yesterday.map(([oopsWindowId, snapshot]) =>
+                      renderSnapshotItem(oopsWindowId, snapshot)
+                    )}
+                  </div>
+                );
+              }
+
+              // Older sections by date
+              Object.entries(grouped.older).forEach(([dateStr, items]) => {
+                sections.push(
+                  <div key={`date-${dateStr}`}>
+                    <div className="px-4 py-2 bg-gray-50 border-b border-gray-200">
+                      <Typography
+                        variant="body"
+                        className="font-medium text-gray-600"
+                      >
+                        {dateStr}
+                      </Typography>
+                    </div>
+                    {items.map(([oopsWindowId, snapshot]) =>
+                      renderSnapshotItem(oopsWindowId, snapshot)
+                    )}
+                  </div>
+                );
+              });
+
+              // Invalid snapshots section (if any)
+              if (grouped.invalid.length > 0) {
+                sections.push(
+                  <div key="invalid-section">
+                    <div className="px-4 py-2 bg-gray-50 border-b border-gray-200">
+                      <Typography
+                        variant="body"
+                        className="font-medium text-gray-600"
+                      >
+                        Invalid Snapshots
+                      </Typography>
+                    </div>
+                    {grouped.invalid.map(([oopsWindowId, snapshot]) => {
+                      // Validate snapshot has the minimum required structure
+                      const isValidSnapshot =
+                        snapshot &&
+                        typeof snapshot === "object" &&
+                        snapshot.timestamp;
+
+                      // Render the item directly or an invalid state item
+                      return isValidSnapshot ? (
+                        renderSnapshotItem(oopsWindowId, snapshot)
+                      ) : (
+                        <ListItem
+                          key={`${oopsWindowId}-invalid`}
+                          title="Invalid Snapshot"
+                          subtitle="This snapshot is corrupted or has invalid data"
+                          icon={<DocumentDuplicateIcon className="h-5 w-5" />}
+                          actions={
+                            <div className="flex space-x-1">
+                              <IconButton
+                                size="sm"
+                                variant="danger"
+                                onClick={() => handleDelete(oopsWindowId)}
+                                title="Delete snapshot"
+                              >
+                                <TrashIcon className="h-4 w-4" />
+                              </IconButton>
+                            </div>
+                          }
+                        />
+                      );
+                    })}
+                  </div>
+                );
+              }
+
+              return sections;
+            })()}
           </Card>
         )}
       </div>
