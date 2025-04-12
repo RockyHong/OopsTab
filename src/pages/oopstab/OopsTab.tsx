@@ -1368,35 +1368,24 @@ const SnapshotsPanel: React.FC = () => {
                 );
               }
 
-              // Recent Snapshots Card
-              if (
-                grouped.today.length > 0 ||
-                grouped.yesterday.length > 0 ||
-                Object.keys(grouped.older).length > 0 ||
-                grouped.invalid.length > 0
-              ) {
-                const recentSections = [];
+              // Today snapshots card
+              if (grouped.today.length > 0) {
+                const visibleTodayItems = grouped.today.slice(0, visibleToday);
+                const hasMoreToday =
+                  grouped.today.length > visibleTodayItems.length;
 
-                // Today section
-                if (grouped.today.length > 0) {
-                  // Apply lazy loading - only show the number of items in visibleToday
-                  const visibleTodayItems = grouped.today.slice(
-                    0,
-                    visibleToday
-                  );
-                  const hasMoreToday =
-                    grouped.today.length > visibleTodayItems.length;
-
-                  recentSections.push(
-                    <div key="today-section">
-                      <div className="p-2 bg-gray-100/60 border-b border-gray-200">
-                        <Typography
-                          variant="body-sm"
-                          className="font-medium text-gray-600"
-                        >
-                          Today
-                        </Typography>
-                      </div>
+                sections.push(
+                  <div key="today-section" className="space-y-2">
+                    <div className="snapshot-section-header">
+                      <Typography
+                        variant="h4"
+                        className="font-semibold flex items-center text-primary-dark"
+                      >
+                        <ClockSolidIcon className="h-4 w-4 text-primary mr-1.5" />
+                        Today
+                      </Typography>
+                    </div>
+                    <Card className="p-0 overflow-hidden border rounded-lg">
                       {visibleTodayItems.map(([id, snapshot], index) =>
                         renderSnapshotItem(id, snapshot, index)
                       )}
@@ -1412,30 +1401,40 @@ const SnapshotsPanel: React.FC = () => {
                           </Typography>
                         </div>
                       )}
+
+                      {/* Load more trigger for today */}
+                      {hasMoreToday && (
+                        <div
+                          ref={loadMoreTriggerRef}
+                          className="h-4 opacity-0 -mb-4"
+                        />
+                      )}
+                    </Card>
+                  </div>
+                );
+              }
+
+              // Yesterday snapshots card
+              if (grouped.yesterday.length > 0) {
+                const visibleYesterdayItems = grouped.yesterday.slice(
+                  0,
+                  visibleYesterday
+                );
+                const hasMoreYesterday =
+                  grouped.yesterday.length > visibleYesterdayItems.length;
+
+                sections.push(
+                  <div key="yesterday-section" className="space-y-2">
+                    <div className="snapshot-section-header">
+                      <Typography
+                        variant="h4"
+                        className="font-semibold flex items-center text-primary-dark"
+                      >
+                        <ClockSolidIcon className="h-4 w-4 text-primary mr-1.5" />
+                        Yesterday
+                      </Typography>
                     </div>
-                  );
-                }
-
-                // Yesterday section
-                if (grouped.yesterday.length > 0) {
-                  // Apply lazy loading - only show the number of items in visibleYesterday
-                  const visibleYesterdayItems = grouped.yesterday.slice(
-                    0,
-                    visibleYesterday
-                  );
-                  const hasMoreYesterday =
-                    grouped.yesterday.length > visibleYesterdayItems.length;
-
-                  recentSections.push(
-                    <div key="yesterday-section">
-                      <div className="p-2 bg-gray-100/60 border-b border-gray-200">
-                        <Typography
-                          variant="body-sm"
-                          className="font-medium text-gray-600"
-                        >
-                          Yesterday
-                        </Typography>
-                      </div>
+                    <Card className="p-0 overflow-hidden border rounded-lg">
                       {visibleYesterdayItems.map(([id, snapshot], index) =>
                         renderSnapshotItem(id, snapshot, index)
                       )}
@@ -1452,42 +1451,108 @@ const SnapshotsPanel: React.FC = () => {
                           </Typography>
                         </div>
                       )}
-                    </div>
-                  );
-                }
 
-                // Add the Recent Snapshots section with its subsections
-                sections.push(
-                  <div key="recent-section" className="space-y-2">
-                    <div className="snapshot-section-header">
-                      <Typography
-                        variant="h4"
-                        className="font-semibold flex items-center text-primary-dark"
-                      >
-                        <ClockSolidIcon className="h-4 w-4 text-primary mr-1.5" />
-                        Recent Snapshots
-                      </Typography>
-                    </div>
-                    <Card className="p-0 overflow-hidden border rounded-lg">
-                      {recentSections.length > 0 ? (
-                        recentSections
-                      ) : (
-                        <div className="p-5">
-                          <Typography variant="body">
-                            No recent snapshots available.
-                          </Typography>
-                        </div>
+                      {/* Load more trigger for yesterday */}
+                      {hasMoreYesterday && (
+                        <div
+                          ref={loadMoreTriggerRef}
+                          className="h-4 opacity-0 -mb-4"
+                        />
                       )}
-
-                      {/* Load more trigger */}
-                      <div
-                        ref={loadMoreTriggerRef}
-                        className="h-4 opacity-0 -mb-4"
-                      />
                     </Card>
                   </div>
                 );
               }
+
+              // Older dates as separate cards
+              if (Object.keys(grouped.older).length > 0) {
+                // Sort the dates (newest first)
+                const sortedDates = Object.keys(grouped.older).sort((a, b) => {
+                  const dateA = new Date(a);
+                  const dateB = new Date(b);
+                  return dateB.getTime() - dateA.getTime();
+                });
+
+                // Create a card for each date
+                sortedDates.forEach((date) => {
+                  const olderSnapshots = grouped.older[date];
+                  const dateKey = `older-${date}`;
+                  const isDateVisible = visibleOlderDates.has(date);
+                  const visibleCount = visibleOlderItems[date] || 5;
+
+                  // If this date isn't in the visible set yet, add it
+                  useEffect(() => {
+                    if (
+                      olderSnapshots.length > 0 &&
+                      !visibleOlderDates.has(date)
+                    ) {
+                      setVisibleOlderDates((prev) => {
+                        const newSet = new Set(prev);
+                        newSet.add(date);
+                        return newSet;
+                      });
+                      setVisibleOlderItems((prev) => ({
+                        ...prev,
+                        [date]: 5, // Start with 5 items
+                      }));
+                    }
+                  }, [date, olderSnapshots.length]);
+
+                  if (isDateVisible) {
+                    const visibleItems = olderSnapshots.slice(0, visibleCount);
+                    const hasMoreItems =
+                      olderSnapshots.length > visibleItems.length;
+
+                    sections.push(
+                      <div key={dateKey} className="space-y-2">
+                        <div className="snapshot-section-header">
+                          <Typography
+                            variant="h4"
+                            className="font-semibold flex items-center text-primary-dark"
+                          >
+                            <ClockSolidIcon className="h-4 w-4 text-primary mr-1.5" />
+                            {date}
+                          </Typography>
+                        </div>
+                        <Card className="p-0 overflow-hidden border rounded-lg">
+                          {visibleItems.map(([id, snapshot], index) =>
+                            renderSnapshotItem(id, snapshot, index)
+                          )}
+                          {hasMoreItems && (
+                            <div className="p-2 bg-gray-50 border-t border-gray-200 text-center">
+                              <Typography
+                                variant="caption"
+                                className="text-gray-500"
+                              >
+                                Scroll to load more (
+                                {olderSnapshots.length - visibleItems.length}{" "}
+                                remaining)
+                              </Typography>
+                            </div>
+                          )}
+
+                          {/* Load more trigger for this date */}
+                          {hasMoreItems && (
+                            <div
+                              ref={loadMoreTriggerRef}
+                              className="h-4 opacity-0 -mb-4"
+                            />
+                          )}
+                        </Card>
+                      </div>
+                    );
+                  }
+                });
+              }
+
+              // Final load more trigger
+              sections.push(
+                <div
+                  key="load-more-trigger"
+                  ref={loadMoreTriggerRef}
+                  className="h-4 opacity-0"
+                />
+              );
 
               return sections;
             })()}
