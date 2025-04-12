@@ -44,8 +44,8 @@ export const saveWindowIdMap = async (idMap: WindowIdMap): Promise<void> => {
 };
 
 /**
- * Generate and register a new oopsWindowId for a Chrome window
- * @param windowId The Chrome window ID
+ * Generate and register a new oopsWindowId for a window
+ * @param windowId The window ID
  * @returns The generated oopsWindowId
  */
 export const registerWindow = async (windowId: number): Promise<string> => {
@@ -70,8 +70,8 @@ export const registerWindow = async (windowId: number): Promise<string> => {
 };
 
 /**
- * Get an oopsWindowId for a Chrome window ID
- * @param windowId The Chrome window ID
+ * Get an oopsWindowId for a window ID
+ * @param windowId The window ID
  * @returns Promise resolving to the oopsWindowId or null if not found
  */
 export const getOopsWindowId = async (
@@ -82,9 +82,9 @@ export const getOopsWindowId = async (
 };
 
 /**
- * Find a Chrome window ID by its oopsWindowId
+ * Find a window ID by its oopsWindowId
  * @param oopsWindowId The oopsWindowId to look for
- * @returns Promise resolving to the Chrome window ID or null if not found
+ * @returns Promise resolving to the window ID or null if not found
  */
 export const findWindowByOopsId = async (
   oopsWindowId: string
@@ -159,9 +159,9 @@ export const initializeWindowTracking = async (): Promise<void> => {
 };
 
 /**
- * Check if a newly created window might be a reopened window from Chrome history
+ * Check if a newly created window might be a reopened window from history
  * Compares URLs with existing snapshots to find matches
- * @param windowId The Chrome window ID to check
+ * @param windowId The window ID to check
  * @returns Promise resolving to true if a match was found and associated
  */
 export const checkForReopenedWindow = async (
