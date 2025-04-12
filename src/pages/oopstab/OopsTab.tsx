@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Typography,
   Card,
@@ -16,6 +16,7 @@ import {
   XMarkIcon,
   PencilIcon,
 } from "@heroicons/react/24/solid";
+import { ClockIcon, RectangleStackIcon } from "@heroicons/react/24/outline";
 import {
   getAllSnapshots,
   WindowSnapshot,
@@ -134,6 +135,219 @@ const ConfirmationDialog: React.FC<{
     </Modal>
   );
 };
+
+// --- New Component for Dynamic Favicon List ---
+interface DynamicFaviconListProps {
+  tabs: TabData[];
+  groups?: TabGroupData[];
+}
+
+const DynamicFaviconList: React.FC<DynamicFaviconListProps> = ({
+  tabs = [],
+  groups = [],
+}) => {
+  // --- Start: Logic moved from renderTabFavicons ---
+  // Create a map for quick group lookups
+  const groupMap = new Map<number, TabGroupData>();
+  if (groups && Array.isArray(groups)) {
+    groups.forEach((group) => {
+      groupMap.set(group.id, group);
+    });
+  }
+
+  // Create a positional array that will preserve exact window order
+  const orderedItems: Array<{
+    type: "tab" | "group";
+    id: number;
+    index: number;
+    data:
+      | TabData
+      | { id: number; name: string; color: string; tabs: TabData[] };
+  }> = [];
+  const processedGroups = new Set<number>();
+
+  // Process all tabs to build orderedItems
+  tabs.forEach((tab: TabData) => {
+    const tabIndex = tab.index || 0;
+    if (tab.groupId && tab.groupId !== -1) {
+      if (!processedGroups.has(tab.groupId)) {
+        processedGroups.add(tab.groupId);
+        const groupInfo = groupMap.get(tab.groupId);
+        const groupData = {
+          id: tab.groupId,
+          name: groupInfo?.title || `Group ${tab.groupId}`,
+          color: groupInfo?.color || "#808080",
+          tabs: [tab],
+        };
+        orderedItems.push({
+          type: "group",
+          id: tab.groupId,
+          index: tabIndex,
+          data: groupData,
+        });
+      } else {
+        const existingGroup = orderedItems.find(
+          (item) => item.type === "group" && item.id === tab.groupId
+        );
+        if (existingGroup && existingGroup.type === "group") {
+          (existingGroup.data as { tabs: TabData[] }).tabs.push(tab);
+        }
+      }
+    } else {
+      orderedItems.push({
+        type: "tab",
+        id: tab.id || tabIndex,
+        index: tabIndex,
+        data: tab,
+      });
+    }
+  });
+  orderedItems.sort((a, b) => a.index - b.index);
+
+  // --- Dynamic Item Calculation Logic (Hooks are safe here) ---
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [maxVisibleItems, setMaxVisibleItems] = useState<number>(Infinity);
+  const estimatedItemWidth = 28; // Approx width: icon(20) + border(2) + gap(4) + buffer(2)
+  const moreTextWidth = 60; // Estimated width for '+ X more' text
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    let animationFrameId: number;
+
+    const observer = new ResizeObserver((entries) => {
+      cancelAnimationFrame(animationFrameId);
+      animationFrameId = requestAnimationFrame(() => {
+        for (let entry of entries) {
+          const containerWidth = entry.contentRect.width;
+          let potentialMax = Math.max(
+            0,
+            Math.floor(containerWidth / estimatedItemWidth)
+          );
+          if (potentialMax < orderedItems.length) {
+            potentialMax = Math.max(
+              0,
+              Math.floor((containerWidth - moreTextWidth) / estimatedItemWidth)
+            );
+          }
+          setMaxVisibleItems(potentialMax);
+        }
+      });
+    });
+
+    observer.observe(container);
+
+    requestAnimationFrame(() => {
+      if (containerRef.current) {
+        const initialWidth = containerRef.current.offsetWidth;
+        let initialMax = Math.max(
+          0,
+          Math.floor(initialWidth / estimatedItemWidth)
+        );
+        if (initialMax < orderedItems.length) {
+          initialMax = Math.max(
+            0,
+            Math.floor((initialWidth - moreTextWidth) / estimatedItemWidth)
+          );
+        }
+        setMaxVisibleItems(initialMax);
+      }
+    });
+
+    return () => {
+      cancelAnimationFrame(animationFrameId);
+      observer.disconnect();
+    };
+  }, [orderedItems.length, estimatedItemWidth, moreTextWidth]);
+
+  const visibleItems = orderedItems.slice(0, maxVisibleItems);
+  const remainingCount = orderedItems.length - visibleItems.length;
+  // --- End: Logic moved from renderTabFavicons ---
+
+  // Return the JSX for the list
+  return (
+    <div
+      ref={containerRef}
+      className="flex items-center overflow-hidden mt-1 gap-1"
+    >
+      {visibleItems.map((item) => {
+        if (item.type === "group") {
+          const group = item.data as {
+            id: number;
+            name: string;
+            color: string;
+            tabs: TabData[];
+          };
+          return (
+            <div
+              key={`group-${group.id}`}
+              className="flex items-center gap-1 flex-shrink-0"
+            >
+              <span
+                className="text-xs px-1.5 py-0.5 rounded text-white whitespace-nowrap"
+                style={{ backgroundColor: group.color }}
+              >
+                {group.name}
+              </span>
+              {group.tabs.length > 0 && (
+                <div
+                  key={`group-tab-${group.id}-0`}
+                  className="h-5 w-5 rounded-full border border-white overflow-hidden bg-gray-100 flex items-center justify-center flex-shrink-0"
+                  title={group.tabs[0].title || group.tabs[0].url || ""}
+                >
+                  {group.tabs[0].faviconUrl ? (
+                    <img
+                      src={group.tabs[0].faviconUrl}
+                      className="h-4 w-4"
+                      alt=""
+                      onError={(e) => {
+                        e.currentTarget.src = "";
+                        e.currentTarget.style.display = "none";
+                      }}
+                    />
+                  ) : (
+                    <div className="h-4 w-4 bg-gray-200 rounded-sm"></div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        } else {
+          const tab = item.data as TabData;
+          return (
+            <div
+              key={`tab-${tab.id || tab.index}`}
+              className="h-5 w-5 rounded-full border border-white overflow-hidden bg-gray-100 flex items-center justify-center flex-shrink-0"
+              title={tab.title || tab.url || ""}
+            >
+              {tab.faviconUrl ? (
+                <img
+                  src={tab.faviconUrl}
+                  className="h-4 w-4"
+                  alt=""
+                  onError={(e) => {
+                    e.currentTarget.src = "";
+                    e.currentTarget.style.display = "none";
+                  }}
+                />
+              ) : (
+                <div className="h-4 w-4 bg-gray-200 rounded-sm"></div>
+              )}
+            </div>
+          );
+        }
+      })}
+
+      {remainingCount > 0 && (
+        <span className="text-xs text-gray-500 ml-1 whitespace-nowrap flex-shrink-0">
+          + {remainingCount} more
+        </span>
+      )}
+    </div>
+  );
+};
+// --- End New Component ---
 
 const SnapshotsPanel: React.FC = () => {
   const [snapshots, setSnapshots] = useState<SnapshotMap>({});
@@ -413,176 +627,6 @@ const SnapshotsPanel: React.FC = () => {
       );
     }
 
-    // Render the tab favicon list
-    const renderTabFavicons = () => {
-      // Get all tabs for display, limit to first 15
-      const tabsToDisplay = snapshot.tabs
-        .slice(0, 15)
-        // Sort tabs by their original index to maintain window order
-        .sort((a, b) => (a.index || 0) - (b.index || 0));
-
-      const remainingCount = snapshot.tabs.length - tabsToDisplay.length;
-
-      // Create a map for quick group lookups
-      const groupMap = new Map<number, TabGroupData>();
-      if (snapshot.groups && Array.isArray(snapshot.groups)) {
-        snapshot.groups.forEach((group) => {
-          groupMap.set(group.id, group);
-        });
-      }
-
-      // Create a positional array that will preserve exact window order
-      const orderedItems: Array<{
-        type: "tab" | "group";
-        id: number;
-        index: number;
-        data:
-          | TabData
-          | { id: number; name: string; color: string; tabs: TabData[] };
-      }> = [];
-
-      // Track which groups we've already added
-      const processedGroups = new Set<number>();
-
-      // Process all tabs in their original order
-      tabsToDisplay.forEach((tab: TabData) => {
-        const tabIndex = tab.index || 0;
-
-        if (tab.groupId && tab.groupId !== -1) {
-          // This is a grouped tab
-
-          // If we haven't added this group yet, add it at this position
-          if (!processedGroups.has(tab.groupId)) {
-            processedGroups.add(tab.groupId);
-
-            // Look up group info
-            const groupInfo = groupMap.get(tab.groupId);
-
-            // Create a new group with this tab
-            const groupData = {
-              id: tab.groupId,
-              name: groupInfo?.title || `Group ${tab.groupId}`,
-              color: groupInfo?.color || "#808080",
-              tabs: [tab],
-            };
-
-            // Add group at the current tab's position
-            orderedItems.push({
-              type: "group",
-              id: tab.groupId,
-              index: tabIndex,
-              data: groupData,
-            });
-          } else {
-            // Find the existing group and add this tab to it
-            const existingGroup = orderedItems.find(
-              (item) => item.type === "group" && item.id === tab.groupId
-            );
-
-            if (existingGroup && existingGroup.type === "group") {
-              (existingGroup.data as { tabs: TabData[] }).tabs.push(tab);
-            }
-          }
-        } else {
-          // This is an ungrouped tab, add it directly
-          orderedItems.push({
-            type: "tab",
-            id: tab.id || tabIndex,
-            index: tabIndex,
-            data: tab,
-          });
-        }
-      });
-
-      // Sort the items by their index position
-      orderedItems.sort((a, b) => a.index - b.index);
-
-      return (
-        <div className="flex flex-wrap items-center gap-2 mt-1">
-          {/* Render items in window order */}
-          {orderedItems.map((item) => {
-            if (item.type === "group") {
-              const group = item.data as {
-                id: number;
-                name: string;
-                color: string;
-                tabs: TabData[];
-              };
-              return (
-                <div
-                  key={`group-${group.id}`}
-                  className="flex items-center gap-1"
-                >
-                  <span
-                    className="text-xs px-1.5 py-0.5 rounded text-white"
-                    style={{ backgroundColor: group.color }}
-                  >
-                    {group.name}
-                  </span>
-                  <div className="flex -space-x-1">
-                    {group.tabs
-                      .sort((a, b) => (a.index || 0) - (b.index || 0)) // Sort tabs within group by index
-                      .slice(0, 1)
-                      .map((tab: TabData, idx: number) => (
-                        <div
-                          key={`group-tab-${group.id}-${idx}`}
-                          className="h-5 w-5 rounded-full border border-white overflow-hidden bg-gray-100 flex items-center justify-center"
-                          title={tab.title || tab.url || ""}
-                        >
-                          {tab.faviconUrl ? (
-                            <img
-                              src={tab.faviconUrl}
-                              className="h-4 w-4"
-                              alt=""
-                              onError={(e) => {
-                                e.currentTarget.src = "";
-                                e.currentTarget.style.display = "none";
-                              }}
-                            />
-                          ) : (
-                            <div className="h-4 w-4 bg-gray-200 rounded-sm"></div>
-                          )}
-                        </div>
-                      ))}
-                  </div>
-                </div>
-              );
-            } else {
-              const tab = item.data as TabData;
-              return (
-                <div
-                  key={`tab-${tab.id || tab.index}`}
-                  className="h-5 w-5 rounded-full border border-white overflow-hidden bg-gray-100 flex items-center justify-center"
-                  title={tab.title || tab.url || ""}
-                >
-                  {tab.faviconUrl ? (
-                    <img
-                      src={tab.faviconUrl}
-                      className="h-4 w-4"
-                      alt=""
-                      onError={(e) => {
-                        e.currentTarget.src = "";
-                        e.currentTarget.style.display = "none";
-                      }}
-                    />
-                  ) : (
-                    <div className="h-4 w-4 bg-gray-200 rounded-sm"></div>
-                  )}
-                </div>
-              );
-            }
-          })}
-
-          {/* Show remaining count if needed */}
-          {remainingCount > 0 && (
-            <span className="text-xs text-gray-500">
-              and {remainingCount} more
-            </span>
-          )}
-        </div>
-      );
-    };
-
     return (
       <ListItem
         key={snapshot.timestamp}
@@ -593,11 +637,36 @@ const SnapshotsPanel: React.FC = () => {
               snapshot={snapshot}
               onUpdate={loadSnapshots}
             />
-            {renderTabFavicons()}
+            {/* Row for icons and labels */}
+            <div className="flex items-center space-x-3 mt-1 text-gray-600">
+              {/* Tab Count Label */}
+              <div className="flex items-center space-x-1">
+                <RectangleStackIcon className="h-3.5 w-3.5" />
+                <Typography variant="caption">
+                  {snapshot.tabs.length} tab
+                  {snapshot.tabs.length !== 1 ? "s" : ""}
+                </Typography>
+              </div>
+              {/* Timestamp Label */}
+              <div className="flex items-center space-x-1">
+                <ClockIcon className="h-3.5 w-3.5" />
+                <Typography variant="caption">
+                  {formatDate(snapshot.timestamp)}
+                </Typography>
+              </div>
+            </div>
+
+            {/* Render the new DynamicFaviconList component */}
+            <div className="mt-2">
+              <DynamicFaviconList
+                tabs={snapshot.tabs}
+                groups={snapshot.groups}
+              />
+            </div>
           </div>
         }
         subtitle=""
-        metadata={formatDate(snapshot.timestamp)}
+        metadata="" // Timestamp moved to title section
         actions={
           <div className="flex space-x-1">
             <IconButton
