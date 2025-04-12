@@ -48,6 +48,39 @@ import {
 } from "../../types";
 import browser from "../../utils/browserAPI";
 
+// CSS Animation for checkbox highlighting
+const checkboxHighlightKeyframes = `
+@keyframes checkboxHighlight {
+  0% { 
+    background-color: rgba(34, 197, 94, 0.8);
+    opacity: 1;
+  }
+  100% { 
+    background-color: rgba(34, 197, 94, 0);
+    opacity: 1;
+  }
+}
+
+.animate-checkbox-highlight {
+  animation: checkboxHighlight 0.3s ease-out;
+  position: relative;
+}
+
+.animate-checkbox-highlight::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(34, 197, 94, 0.8);
+  border-radius: 0.25rem;
+  animation: checkboxHighlight 0.3s ease-out forwards;
+  pointer-events: none;
+  z-index: 1;
+}
+`;
+
 // Helper to format date
 const formatDate = (timestamp: number): string => {
   const date = new Date(timestamp);
@@ -373,6 +406,8 @@ const SnapshotsPanel: React.FC = () => {
     new Set()
   );
   const [showMergeConfirm, setShowMergeConfirm] = useState(false);
+  // Add new state to track animation
+  const [checkboxAnimation, setCheckboxAnimation] = useState(false);
 
   // Lazy loading states
   const [visibleToday, setVisibleToday] = useState<number>(10); // Initial number of today's snapshots to show
@@ -392,6 +427,19 @@ const SnapshotsPanel: React.FC = () => {
     windowId: "",
     isBulkDelete: false,
   });
+
+  // Inject animation CSS
+  useEffect(() => {
+    // Create style element for checkbox animation
+    const styleElement = document.createElement("style");
+    styleElement.innerHTML = checkboxHighlightKeyframes;
+    document.head.appendChild(styleElement);
+
+    // Clean up on unmount
+    return () => {
+      styleElement.remove();
+    };
+  }, []);
 
   // Initialize intersection observer for infinite scrolling
   useEffect(() => {
@@ -793,6 +841,14 @@ const SnapshotsPanel: React.FC = () => {
     });
   };
 
+  // Toggle select mode with animation hint
+  const toggleSelectMode = () => {
+    setIsSelectMode(true);
+    setCheckboxAnimation(true);
+    // Turn off animation after it completes
+    setTimeout(() => setCheckboxAnimation(false), 300);
+  };
+
   // Cancel selection mode
   const cancelSelectMode = () => {
     setIsSelectMode(false);
@@ -960,7 +1016,9 @@ const SnapshotsPanel: React.FC = () => {
                     toggleSnapshotSelection(oopsWindowId);
                   }}
                   onClick={(e) => e.stopPropagation()}
-                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                  className={`h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer ${
+                    checkboxAnimation ? "animate-checkbox-highlight" : ""
+                  }`}
                 />
               </div>
             ) : (
@@ -1044,7 +1102,9 @@ const SnapshotsPanel: React.FC = () => {
                   toggleSnapshotSelection(oopsWindowId);
                 }}
                 onClick={(e) => e.stopPropagation()}
-                className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                className={`h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer ${
+                  checkboxAnimation ? "animate-checkbox-highlight" : ""
+                }`}
               />
             </div>
           ) : (
@@ -1133,7 +1193,7 @@ const SnapshotsPanel: React.FC = () => {
             <>
               <Button
                 variant="passive"
-                onClick={() => setIsSelectMode(true)}
+                onClick={toggleSelectMode}
                 title="Select snapshots for bulk actions"
               >
                 Select

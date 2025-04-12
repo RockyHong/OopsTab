@@ -167,19 +167,6 @@ const SettingsPanel: React.FC = () => {
         <Typography variant="h2" className="text-primary">
           OopsTab Settings
         </Typography>
-
-        {/* Only show debug button in development mode */}
-        {process.env.NODE_ENV === "development" && (
-          <Button
-            variant="passive"
-            size="sm"
-            onClick={() => navigate("/debug")}
-            className="flex items-center space-x-1"
-          >
-            <BeakerIcon className="h-4 w-4" />
-            <span>Debug Tools</span>
-          </Button>
-        )}
       </div>
 
       {/* Storage Management Card */}
