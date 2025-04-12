@@ -76,6 +76,16 @@
     @apply mx-auto p-5 max-w-5xl w-full;
   }
   
+  /* Page content wrapper - used for consistent spacing across pages */
+  .page-content-wrapper {
+    @apply space-y-6 relative;
+  }
+  
+  /* Page header - consistent styling for page headers */
+  .page-header {
+    @apply sticky top-14 bg-white z-20 py-3 flex items-center justify-between shadow-sm;
+  }
+  
   /* Section spacing */
   .section {
     @apply py-xl;

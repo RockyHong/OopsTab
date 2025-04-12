@@ -1153,9 +1153,9 @@ const SnapshotsPanel: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 relative">
+    <div className="page-content-wrapper">
       {/* Title row - sticky with background */}
-      <div className="sticky top-14 bg-white z-20 py-3 px-6 mb-6 flex items-center justify-between shadow-sm">
+      <div className="page-header">
         <Typography variant="h2" className="text-primary">
           Window Snapshots
         </Typography>

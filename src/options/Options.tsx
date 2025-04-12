@@ -162,8 +162,8 @@ const SettingsPanel: React.FC = () => {
   };
 
   return (
-    <div className="p-5 max-w-3xl mx-auto space-y-5">
-      <div className="flex justify-between items-center">
+    <div className="page-content-wrapper">
+      <div className="page-header">
         <Typography variant="h2" className="text-primary">
           OopsTab Settings
         </Typography>
@@ -207,17 +207,6 @@ const SettingsPanel: React.FC = () => {
                 </div>
               )}
 
-            <div className="flex justify-end">
-              <Button
-                variant="danger"
-                size="sm"
-                onClick={handleDeleteAllSnapshots}
-                disabled={isLoading}
-              >
-                Delete All Snapshots
-              </Button>
-            </div>
-
             <div className="text-sm text-gray-600">
               <p>
                 OopsTab stores your window snapshots in browser storage, which
@@ -231,6 +220,16 @@ const SettingsPanel: React.FC = () => {
                   If storage usage is high, consider closing unused windows
                 </li>
               </ul>
+            </div>
+
+            <div className="flex justify-end">
+              <Button
+                variant="danger"
+                onClick={handleDeleteAllSnapshots}
+                disabled={isLoading}
+              >
+                Delete All Snapshots
+              </Button>
             </div>
           </div>
         )}
@@ -314,7 +313,6 @@ const SettingsPanel: React.FC = () => {
             </Button>
             <Button
               variant="danger"
-              size="sm"
               onClick={resetDefaults}
               disabled={isLoading}
             >
@@ -379,10 +377,12 @@ const DebugView: React.FC = () => {
   // Only render in development mode
   if (process.env.NODE_ENV !== "development") {
     return (
-      <div className="p-5 max-w-3xl mx-auto">
-        <Typography variant="h2" className="text-primary">
-          Debug Tools Unavailable
-        </Typography>
+      <div className="page-content-wrapper">
+        <div className="page-header">
+          <Typography variant="h2" className="text-primary">
+            Debug Tools Unavailable
+          </Typography>
+        </div>
         <p className="mt-4">
           Debug tools are only available in development mode.
         </p>
