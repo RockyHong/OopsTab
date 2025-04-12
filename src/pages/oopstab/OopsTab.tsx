@@ -6,6 +6,7 @@ import {
   IconButton,
   ListItem,
   Modal,
+  Toggle,
 } from "../../components/ui";
 import {
   Cog6ToothIcon,
@@ -15,8 +16,15 @@ import {
   CheckIcon,
   XMarkIcon,
   PencilIcon,
+  StarIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
 } from "@heroicons/react/24/solid";
-import { ClockIcon, RectangleStackIcon } from "@heroicons/react/24/outline";
+import {
+  ClockIcon,
+  RectangleStackIcon,
+  StarIcon as StarOutlineIcon,
+} from "@heroicons/react/24/outline";
 import {
   getAllSnapshots,
   WindowSnapshot,
@@ -28,6 +36,8 @@ import {
   checkStorageLimits,
   DEFAULT_STORAGE_STATS,
   SnapshotMap,
+  toggleSnapshotStar,
+  cleanupSnapshots,
 } from "../../utils";
 import browser from "../../utils/browserAPI";
 
@@ -352,6 +362,7 @@ const DynamicFaviconList: React.FC<DynamicFaviconListProps> = ({
 const SnapshotsPanel: React.FC = () => {
   const [snapshots, setSnapshots] = useState<SnapshotMap>({});
   const [isLoading, setIsLoading] = useState(true);
+  const [showAllStarred, setShowAllStarred] = useState(false);
   const [storageStatus, setStorageStatus] = useState({
     percentUsed: 0,
     isApproachingLimit: false,
@@ -394,6 +405,9 @@ const SnapshotsPanel: React.FC = () => {
     try {
       const snapshotMap = await getAllSnapshots();
       setSnapshots(snapshotMap);
+
+      // Run automatic cleanup (keep starred, limit to 20 non-starred, delete older than 30 days)
+      await cleanupSnapshots();
 
       // Also update storage status when loading snapshots
       await loadStorageStatus();
@@ -594,6 +608,12 @@ const SnapshotsPanel: React.FC = () => {
     );
   };
 
+  // Handle starring and unstarring
+  const handleToggleStar = async (oopsWindowId: string, isStarred: boolean) => {
+    await toggleSnapshotStar(oopsWindowId, isStarred);
+    loadSnapshots();
+  };
+
   // Render a snapshot list item
   const renderSnapshotItem = (
     oopsWindowId: string,
@@ -671,6 +691,20 @@ const SnapshotsPanel: React.FC = () => {
           <div className="flex space-x-1">
             <IconButton
               size="sm"
+              variant={snapshot.isStarred ? "warning" : "secondary"}
+              onClick={() =>
+                handleToggleStar(oopsWindowId, !snapshot.isStarred)
+              }
+              title={snapshot.isStarred ? "Unstar snapshot" : "Star snapshot"}
+            >
+              {snapshot.isStarred ? (
+                <StarIcon className="h-4 w-4 text-yellow-500" />
+              ) : (
+                <StarOutlineIcon className="h-4 w-4" />
+              )}
+            </IconButton>
+            <IconButton
+              size="sm"
               variant="primary"
               onClick={() => handleRestore(oopsWindowId)}
               title="Restore session"
@@ -694,7 +728,7 @@ const SnapshotsPanel: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Snapshots */}
-      <div className="mb-6">
+      <div className="mb-6 space-y-4">
         <div className="flex items-center justify-between mb-4">
           <Typography variant="h2">Window Snapshots</Typography>
           <Button
@@ -719,10 +753,12 @@ const SnapshotsPanel: React.FC = () => {
             </Typography>
           </Card>
         ) : (
-          <Card className="p-0 overflow-hidden">
+          <>
+            {/* Starred Snapshots Card */}
             {(() => {
-              // Group snapshots by date
+              // Group snapshots by date and starred status
               type GroupedSnapshots = {
+                starred: [string, WindowSnapshot][];
                 today: [string, WindowSnapshot][];
                 yesterday: [string, WindowSnapshot][];
                 older: { [date: string]: [string, WindowSnapshot][] };
@@ -737,9 +773,15 @@ const SnapshotsPanel: React.FC = () => {
                   const timeB = b?.timestamp ?? 0;
                   return timeB - timeA;
                 })
-                // Group by date
+                // Group by starred status and date
                 .reduce(
                   (acc: GroupedSnapshots, [oopsWindowId, snapshot]) => {
+                    // First check if it's a starred snapshot
+                    if (snapshot?.isStarred) {
+                      acc.starred.push([oopsWindowId, snapshot]);
+                      return acc;
+                    }
+
                     // Skip invalid snapshots in grouping
                     if (!snapshot || !snapshot.timestamp) {
                       acc.invalid.push([oopsWindowId, snapshot]);
@@ -776,119 +818,286 @@ const SnapshotsPanel: React.FC = () => {
 
                     return acc;
                   },
-                  { today: [], yesterday: [], older: {}, invalid: [] }
+                  {
+                    starred: [],
+                    today: [],
+                    yesterday: [],
+                    older: {},
+                    invalid: [],
+                  }
                 );
 
-              // Render sections with dividers
-              const sections: JSX.Element[] = [];
+              // Render starred snapshots
+              if (grouped.starred.length > 0) {
+                const visibleStarredItems = showAllStarred
+                  ? grouped.starred
+                  : grouped.starred.slice(0, 3);
 
-              // Today section
-              if (grouped.today.length > 0) {
-                sections.push(
-                  <div key="today-section">
+                return (
+                  <Card className="p-0 overflow-hidden">
                     <div className="px-4 py-2 bg-gray-50 border-b border-gray-200">
                       <Typography
-                        variant="body"
-                        className="font-medium text-gray-600"
+                        variant="h4"
+                        className="font-semibold flex items-center"
                       >
-                        Today
+                        <StarIcon className="h-4 w-4 text-yellow-500 mr-1" />
+                        Starred Snapshots
                       </Typography>
                     </div>
-                    {grouped.today.map(([oopsWindowId, snapshot]) =>
-                      renderSnapshotItem(oopsWindowId, snapshot)
+
+                    {/* Starred snapshot items */}
+                    {visibleStarredItems.map(([id, snapshot]) =>
+                      renderSnapshotItem(id, snapshot)
                     )}
-                  </div>
+
+                    {/* Show more/less button */}
+                    {grouped.starred.length > 3 && (
+                      <div
+                        className="w-full px-4 py-2 border-t border-gray-200 bg-gray-50 hover:bg-gray-100 cursor-pointer text-sm text-gray-600 flex items-center justify-center"
+                        onClick={() => setShowAllStarred(!showAllStarred)}
+                      >
+                        {showAllStarred ? (
+                          <>
+                            <ChevronUpIcon className="h-4 w-4 mr-1" />
+                            Show less
+                          </>
+                        ) : (
+                          <>
+                            <ChevronDownIcon className="h-4 w-4 mr-1" />
+                            Show {grouped.starred.length - 3} more
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </Card>
+                );
+              } else if (
+                grouped.today.length > 0 ||
+                grouped.yesterday.length > 0 ||
+                Object.keys(grouped.older).length > 0
+              ) {
+                // Show explainer about starring if we have snapshots but none are starred
+                return (
+                  <Card className="p-4 bg-blue-50">
+                    <Typography
+                      variant="body"
+                      className="flex items-center text-blue-700"
+                    >
+                      <StarOutlineIcon className="h-4 w-4 text-blue-500 mr-1 flex-shrink-0" />
+                      <span>
+                        You can star important snapshots to make them persist
+                        during cleanup. Starred snapshots will appear here.
+                      </span>
+                    </Typography>
+                  </Card>
                 );
               }
 
-              // Yesterday section
-              if (grouped.yesterday.length > 0) {
-                sections.push(
-                  <div key="yesterday-section">
-                    <div className="px-4 py-2 bg-gray-50 border-b border-gray-200">
-                      <Typography
-                        variant="body"
-                        className="font-medium text-gray-600"
-                      >
-                        Yesterday
-                      </Typography>
-                    </div>
-                    {grouped.yesterday.map(([oopsWindowId, snapshot]) =>
-                      renderSnapshotItem(oopsWindowId, snapshot)
-                    )}
-                  </div>
-                );
-              }
-
-              // Older sections by date
-              Object.entries(grouped.older).forEach(([dateStr, items]) => {
-                sections.push(
-                  <div key={`date-${dateStr}`}>
-                    <div className="px-4 py-2 bg-gray-50 border-b border-gray-200">
-                      <Typography
-                        variant="body"
-                        className="font-medium text-gray-600"
-                      >
-                        {dateStr}
-                      </Typography>
-                    </div>
-                    {items.map(([oopsWindowId, snapshot]) =>
-                      renderSnapshotItem(oopsWindowId, snapshot)
-                    )}
-                  </div>
-                );
-              });
-
-              // Invalid snapshots section (if any)
-              if (grouped.invalid.length > 0) {
-                sections.push(
-                  <div key="invalid-section">
-                    <div className="px-4 py-2 bg-gray-50 border-b border-gray-200">
-                      <Typography
-                        variant="body"
-                        className="font-medium text-gray-600"
-                      >
-                        Invalid Snapshots
-                      </Typography>
-                    </div>
-                    {grouped.invalid.map(([oopsWindowId, snapshot]) => {
-                      // Validate snapshot has the minimum required structure
-                      const isValidSnapshot =
-                        snapshot &&
-                        typeof snapshot === "object" &&
-                        snapshot.timestamp;
-
-                      // Render the item directly or an invalid state item
-                      return isValidSnapshot ? (
-                        renderSnapshotItem(oopsWindowId, snapshot)
-                      ) : (
-                        <ListItem
-                          key={`${oopsWindowId}-invalid`}
-                          title="Invalid Snapshot"
-                          subtitle="This snapshot is corrupted or has invalid data"
-                          icon={<DocumentDuplicateIcon className="h-5 w-5" />}
-                          actions={
-                            <div className="flex space-x-1">
-                              <IconButton
-                                size="sm"
-                                variant="danger"
-                                onClick={() => handleDelete(oopsWindowId)}
-                                title="Delete snapshot"
-                              >
-                                <TrashIcon className="h-4 w-4" />
-                              </IconButton>
-                            </div>
-                          }
-                        />
-                      );
-                    })}
-                  </div>
-                );
-              }
-
-              return sections;
+              return null;
             })()}
-          </Card>
+
+            {/* Recent Snapshots Card */}
+            <Card className="p-0 overflow-hidden">
+              {(() => {
+                // Group snapshots by date and starred status
+                type GroupedSnapshots = {
+                  starred: [string, WindowSnapshot][];
+                  today: [string, WindowSnapshot][];
+                  yesterday: [string, WindowSnapshot][];
+                  older: { [date: string]: [string, WindowSnapshot][] };
+                  invalid: [string, WindowSnapshot][];
+                };
+
+                const grouped = Object.entries(snapshots)
+                  // Sort snapshots by timestamp, newest first
+                  .sort(([, a], [, b]) => {
+                    // Add checks for potentially undefined timestamps
+                    const timeA = a?.timestamp ?? 0;
+                    const timeB = b?.timestamp ?? 0;
+                    return timeB - timeA;
+                  })
+                  // Group by date
+                  .reduce(
+                    (acc: GroupedSnapshots, [oopsWindowId, snapshot]) => {
+                      // Skip starred snapshots for the history section
+                      if (snapshot?.isStarred) {
+                        return acc;
+                      }
+
+                      // Skip invalid snapshots in grouping
+                      if (!snapshot || !snapshot.timestamp) {
+                        acc.invalid.push([oopsWindowId, snapshot]);
+                        return acc;
+                      }
+
+                      const date = new Date(snapshot.timestamp);
+                      const today = new Date();
+                      const yesterday = new Date();
+                      yesterday.setDate(yesterday.getDate() - 1);
+
+                      // Format for comparison (YYYY-MM-DD)
+                      const dateStr = date.toISOString().split("T")[0];
+                      const todayStr = today.toISOString().split("T")[0];
+                      const yesterdayStr = yesterday
+                        .toISOString()
+                        .split("T")[0];
+
+                      if (dateStr === todayStr) {
+                        acc.today.push([oopsWindowId, snapshot]);
+                      } else if (dateStr === yesterdayStr) {
+                        acc.yesterday.push([oopsWindowId, snapshot]);
+                      } else {
+                        // Group older snapshots by date
+                        const shortDate = date.toLocaleDateString(undefined, {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        });
+
+                        if (!acc.older[shortDate]) {
+                          acc.older[shortDate] = [];
+                        }
+                        acc.older[shortDate].push([oopsWindowId, snapshot]);
+                      }
+
+                      return acc;
+                    },
+                    {
+                      starred: [],
+                      today: [],
+                      yesterday: [],
+                      older: {},
+                      invalid: [],
+                    }
+                  );
+
+                // Render sections with dividers
+                const sections: JSX.Element[] = [];
+
+                // Today section
+                if (grouped.today.length > 0) {
+                  sections.push(
+                    <div key="today-section">
+                      <div className="px-4 py-2 bg-gray-50 border-b border-gray-200">
+                        <Typography variant="h4" className="font-semibold">
+                          Recent Snapshots
+                        </Typography>
+                      </div>
+                      {grouped.today.map(([id, snapshot]) =>
+                        renderSnapshotItem(id, snapshot)
+                      )}
+                    </div>
+                  );
+                }
+
+                // Yesterday section
+                if (grouped.yesterday.length > 0) {
+                  sections.push(
+                    <div key="yesterday-section">
+                      <div className="px-4 py-2 bg-gray-50 border-b border-gray-200">
+                        <Typography
+                          variant="body"
+                          className="font-medium text-gray-600"
+                        >
+                          Yesterday
+                        </Typography>
+                      </div>
+                      {grouped.yesterday.map(([id, snapshot]) =>
+                        renderSnapshotItem(id, snapshot)
+                      )}
+                    </div>
+                  );
+                }
+
+                // Older sections
+                const olderDates = Object.keys(grouped.older).sort((a, b) => {
+                  // Try to sort by date, newest first
+                  // This is a simplistic approach as we're sorting strings
+                  // A more accurate approach would be to parse the dates
+                  return b.localeCompare(a);
+                });
+
+                for (const date of olderDates) {
+                  const items = grouped.older[date];
+                  sections.push(
+                    <div key={`date-${date}`}>
+                      <div className="px-4 py-2 bg-gray-50 border-b border-gray-200">
+                        <Typography
+                          variant="body"
+                          className="font-medium text-gray-600"
+                        >
+                          {date}
+                        </Typography>
+                      </div>
+                      {items.map(([id, snapshot]) =>
+                        renderSnapshotItem(id, snapshot)
+                      )}
+                    </div>
+                  );
+                }
+
+                // Invalid snapshots section (if any)
+                if (grouped.invalid.length > 0) {
+                  sections.push(
+                    <div key="invalid-section">
+                      <div className="px-4 py-2 bg-gray-50 border-b border-gray-200">
+                        <Typography
+                          variant="body"
+                          className="font-medium text-gray-600"
+                        >
+                          Corrupted or Invalid Snapshots
+                        </Typography>
+                      </div>
+                      {grouped.invalid.map(([id, snapshot]) => {
+                        // Validate snapshot has the minimum required structure
+                        const isValidSnapshot =
+                          snapshot &&
+                          typeof snapshot === "object" &&
+                          snapshot.timestamp;
+
+                        // Render the item directly or an invalid state item
+                        return isValidSnapshot ? (
+                          renderSnapshotItem(id, snapshot)
+                        ) : (
+                          <ListItem
+                            key={`${id}-invalid`}
+                            title="Invalid Snapshot"
+                            subtitle="This snapshot is corrupted or has invalid data"
+                            metadata=""
+                            actions={
+                              <div className="flex space-x-1">
+                                <IconButton
+                                  size="sm"
+                                  variant="danger"
+                                  onClick={() => handleDelete(id)}
+                                  title="Delete snapshot"
+                                >
+                                  <TrashIcon className="h-4 w-4" />
+                                </IconButton>
+                              </div>
+                            }
+                          />
+                        );
+                      })}
+                    </div>
+                  );
+                }
+
+                // If no sections to show
+                if (sections.length === 0) {
+                  return (
+                    <div className="p-5">
+                      <Typography variant="body">
+                        No recent snapshots available.
+                      </Typography>
+                    </div>
+                  );
+                }
+
+                return sections;
+              })()}
+            </Card>
+          </>
         )}
       </div>
 

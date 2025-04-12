@@ -67,6 +67,7 @@ export interface WindowSnapshot {
   tabs: TabData[];
   groups: TabGroupData[];
   customName?: string; // Custom name for the snapshot
+  isStarred?: boolean; // Flag to mark starred snapshots
 }
 
 // New simplified interface - direct mapping of oopsWindowId to snapshot
@@ -355,27 +356,6 @@ export const createWindowSnapshot = async (
       console.log(
         `Skipping snapshot for window ${windowId} - only one tab and no groups`
       );
-      // Don't delete existing snapshots as this could break window tracking
-      // We'll just skip saving but preserve any existing snapshots
-      /*
-      // Also attempt to delete any existing snapshot for this window
-      // in case it previously had more tabs/groups
-      try {
-        const snapshots = await getAllSnapshots();
-        if (snapshots[oopsWindowId]) {
-          delete snapshots[oopsWindowId];
-          await saveAllSnapshots(snapshots);
-          console.log(
-            `Deleted existing snapshot for single-tab window ${windowId}`
-          );
-        }
-      } catch (delErr) {
-        console.error(
-          `Error trying to delete existing snapshot for window ${windowId}:`,
-          delErr
-        );
-      }
-      */
       return false; // Do not proceed to create/save the snapshot
     }
 
@@ -409,15 +389,18 @@ export const createWindowSnapshot = async (
       };
     });
 
-    // Create the snapshot
+    // Get existing snapshots to check if this window already has a snapshot
+    const snapshots = await getAllSnapshots();
+    const existingSnapshot = snapshots[oopsWindowId];
+
+    // Create the snapshot (preserving starred status and custom name if it exists)
     const snapshot: WindowSnapshot = {
       timestamp: Date.now(),
       tabs: tabsData,
       groups,
+      customName: existingSnapshot?.customName,
+      isStarred: existingSnapshot?.isStarred,
     };
-
-    // Get existing snapshots
-    const snapshots = await getAllSnapshots();
 
     // Update the snapshot for this window
     snapshots[oopsWindowId] = snapshot;
@@ -823,6 +806,17 @@ export const createFinalWindowSnapshot = async (
 
     // Get existing snapshots
     const snapshots = await getAllSnapshots();
+    const existingSnapshot = snapshots[oopsWindowId];
+
+    // Preserve starred status and custom name if they exist
+    if (existingSnapshot) {
+      if (existingSnapshot.customName) {
+        snapshot.customName = existingSnapshot.customName;
+      }
+      if (existingSnapshot.isStarred) {
+        snapshot.isStarred = existingSnapshot.isStarred;
+      }
+    }
 
     // Update the snapshot for this window
     snapshots[oopsWindowId] = snapshot;
@@ -852,4 +846,113 @@ export const resetDeletedWindowTracking = (): void => {
   // Clear the set of tracked deleted windows
   deletedWindowSnapshots.clear();
   console.log("Deleted window tracking reset");
+};
+
+/**
+ * Toggle star status for a snapshot
+ * @param oopsWindowId The oopsWindowId to star/unstar
+ * @param isStarred Whether to star or unstar the snapshot
+ * @returns Promise resolving to true if the operation was successful
+ */
+export const toggleSnapshotStar = async (
+  oopsWindowId: string,
+  isStarred: boolean
+): Promise<boolean> => {
+  try {
+    const snapshots = await getAllSnapshots();
+
+    if (!snapshots[oopsWindowId]) {
+      console.error(`No snapshot found for window ${oopsWindowId}`);
+      return false;
+    }
+
+    // Update the isStarred property
+    snapshots[oopsWindowId].isStarred = isStarred;
+
+    // Save back to storage
+    await saveAllSnapshots(snapshots);
+
+    console.log(
+      `${
+        isStarred ? "Starred" : "Unstarred"
+      } snapshot for window ${oopsWindowId}`
+    );
+    return true;
+  } catch (err) {
+    console.error("Error toggling snapshot star:", err);
+    return false;
+  }
+};
+
+/**
+ * Cleanup old snapshots while preserving starred ones
+ * @param maxAge Maximum age in milliseconds to keep non-starred snapshots (default: 30 days)
+ * @param maxCount Maximum number of non-starred snapshots to keep (default: 20)
+ * @returns Promise resolving to true if cleanup was successful
+ */
+export const cleanupSnapshots = async (
+  maxAge: number = 30 * 24 * 60 * 60 * 1000, // 30 days default
+  maxCount: number = 20
+): Promise<boolean> => {
+  try {
+    // Get all snapshots
+    const allSnapshots = await getAllSnapshots();
+
+    // Separate starred and non-starred snapshots
+    const starred: [string, WindowSnapshot][] = [];
+    const nonStarred: [string, WindowSnapshot][] = [];
+
+    Object.entries(allSnapshots).forEach(([id, snapshot]) => {
+      if (snapshot.isStarred) {
+        starred.push([id, snapshot]);
+      } else {
+        nonStarred.push([id, snapshot]);
+      }
+    });
+
+    // Sort non-starred snapshots by timestamp, newest first
+    nonStarred.sort(([, a], [, b]) => {
+      return (b.timestamp || 0) - (a.timestamp || 0);
+    });
+
+    // Keep only the newest maxCount non-starred snapshots
+    const snapshotsToKeep = nonStarred.slice(0, maxCount);
+
+    // Also check age restriction for the remaining snapshots
+    const now = Date.now();
+    const cutoffTime = now - maxAge;
+
+    // Filter snapshots by age
+    const finalNonStarredToKeep = snapshotsToKeep.filter(
+      ([, snapshot]) => (snapshot.timestamp || 0) >= cutoffTime
+    );
+
+    // Build new snapshot map with starred + filtered non-starred
+    const newSnapshotMap: SnapshotMap = {};
+
+    // Add all starred snapshots (these are always kept)
+    starred.forEach(([id, snapshot]) => {
+      newSnapshotMap[id] = snapshot;
+    });
+
+    // Add filtered non-starred snapshots
+    finalNonStarredToKeep.forEach(([id, snapshot]) => {
+      newSnapshotMap[id] = snapshot;
+    });
+
+    // Calculate how many were removed
+    const removedCount =
+      Object.keys(allSnapshots).length - Object.keys(newSnapshotMap).length;
+
+    // Save the filtered snapshot map
+    await saveAllSnapshots(newSnapshotMap);
+
+    console.log(
+      `Cleaned up snapshots: kept ${starred.length} starred and ${finalNonStarredToKeep.length} recent non-starred snapshots, removed ${removedCount}`
+    );
+    return true;
+  } catch (err) {
+    console.error("Error cleaning up snapshots:", err);
+    return false;
+  }
 };

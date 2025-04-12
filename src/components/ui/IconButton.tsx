@@ -1,6 +1,11 @@
 import React from "react";
 
-type IconButtonVariant = "primary" | "passive" | "danger";
+type IconButtonVariant =
+  | "primary"
+  | "passive"
+  | "danger"
+  | "warning"
+  | "secondary";
 type IconButtonSize = "sm" | "md" | "lg";
 
 interface IconButtonProps
@@ -25,6 +30,8 @@ const IconButton: React.FC<IconButtonProps> = ({
     primary: "text-primary hover:bg-primary hover:bg-opacity-10",
     passive: "text-gray-600 hover:bg-gray-200",
     danger: "text-danger hover:bg-danger hover:bg-opacity-10",
+    warning: "text-yellow-600 hover:bg-yellow-100",
+    secondary: "text-gray-500 hover:bg-gray-100",
   };
 
   const sizeClasses = {
