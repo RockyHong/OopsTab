@@ -9,6 +9,8 @@ import {
   deleteAllSnapshots,
 } from "../utils";
 import { OopsConfig, DEFAULT_CONFIG, DEFAULT_STORAGE_STATS } from "../types";
+import { useNavigate } from "react-router-dom";
+import { BeakerIcon } from "@heroicons/react/24/outline";
 
 // Main Settings component
 const SettingsPanel: React.FC = () => {
@@ -26,6 +28,7 @@ const SettingsPanel: React.FC = () => {
       windows: 0,
     },
   });
+  const navigate = useNavigate();
 
   // Format bytes to human-readable format (KB, MB)
   const formatBytes = (bytes: number): string => {
@@ -139,11 +142,24 @@ const SettingsPanel: React.FC = () => {
   };
 
   return (
-    <div className="p-5 max-w-3xl mx-auto space-y-5">
+    <div className="content-container">
       <div className="flex justify-between items-center">
         <Typography variant="h2" className="text-primary">
-          Settings
+          OopsTab Settings
         </Typography>
+
+        {/* Only show debug button in development mode */}
+        {process.env.NODE_ENV === "development" && (
+          <Button
+            variant="passive"
+            size="sm"
+            onClick={() => navigate("/debug")}
+            className="flex items-center space-x-1"
+          >
+            <BeakerIcon className="h-4 w-4" />
+            <span>Debug Tools</span>
+          </Button>
+        )}
       </div>
 
       {/* Storage Management Card */}

@@ -9,7 +9,7 @@
   }
   
   body {
-    @apply bg-white text-text-primary;
+    @apply bg-primary text-text-primary;
   }
   
   /* Heading typography styles */
@@ -71,6 +71,11 @@
     @apply max-w-7xl mx-auto px-md;
   }
   
+  /* Content container - consistent across all pages */
+  .content-container {
+    @apply max-w-5xl mx-auto px-4 py-6;
+  }
+  
   /* Section spacing */
   .section {
     @apply py-xl;
@@ -94,8 +99,8 @@
     @apply max-w-5xl mx-auto px-4 py-3 flex items-center justify-between;
   }
   
-  .header-title {
-    @apply text-white;
+  .header-logo {
+    @apply text-white font-heading text-2xl font-bold tracking-tight;
   }
   
   .header-nav {

@@ -156,7 +156,7 @@ const DebugPanel: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="content-container">
       <div className="flex justify-between items-center mb-4">
         <Typography variant="h2" className="text-primary">
           Debug Tools

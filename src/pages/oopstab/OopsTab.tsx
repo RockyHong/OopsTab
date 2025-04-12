@@ -67,7 +67,7 @@ const formatDate = (timestamp: number): string => {
 
 const OopsTab: React.FC = () => {
   return (
-    <div>
+    <div className="content-container">
       <Typography variant="h2" className="text-primary mb-4">
         Window Snapshots
       </Typography>
@@ -335,6 +335,7 @@ const SnapshotsPanel: React.FC = () => {
     usedBytes: 0,
     totalBytes: DEFAULT_STORAGE_STATS.totalBytes,
   });
+  const scrollPositionRef = useRef<number>(0); // Ref to store scroll position
 
   // State for confirmation dialog
   const [confirmDialog, setConfirmDialog] = useState({
@@ -366,6 +367,7 @@ const SnapshotsPanel: React.FC = () => {
 
   // Load snapshots
   const loadSnapshots = async () => {
+    scrollPositionRef.current = window.scrollY; // Save scroll position before loading
     setIsLoading(true);
     try {
       const snapshotMap = await getAllSnapshots();
@@ -431,6 +433,15 @@ const SnapshotsPanel: React.FC = () => {
       browser.storage.onChanged.removeListener(handleStorageChanges);
     };
   }, []);
+
+  // Effect to restore scroll position after loading
+  useEffect(() => {
+    if (!isLoading) {
+      requestAnimationFrame(() => {
+        window.scrollTo(0, scrollPositionRef.current);
+      });
+    }
+  }, [isLoading]);
 
   // Handle snapshot restoration
   const handleRestore = async (oopsWindowId: string) => {

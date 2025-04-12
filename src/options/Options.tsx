@@ -347,9 +347,7 @@ const Navigation: React.FC = () => {
   return (
     <header className="app-header">
       <div className="header-content">
-        <Typography variant="h2" className="header-title">
-          OopsTab
-        </Typography>
+        <span className="header-logo">OopsTab</span>
         <nav className="header-nav">
           <Link to="/">
             <button
@@ -414,7 +412,7 @@ const Options: React.FC = () => {
     <Router>
       <div className="min-h-screen bg-white">
         <Navigation />
-        <main className="max-w-5xl mx-auto px-4 py-6">
+        <main className="content-container">
           <Routes>
             <Route path="/" element={<OopsTab />} />
             <Route path="/settings" element={<SettingsPanel />} />
