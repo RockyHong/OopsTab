@@ -8,6 +8,9 @@ const webpack = require('webpack');
 const iconsExist = fs.existsSync(path.resolve(__dirname, 'public/icons')) && 
   fs.readdirSync(path.resolve(__dirname, 'public/icons')).length > 0;
 
+// Check if assets directory exists
+const assetsExist = fs.existsSync(path.resolve(__dirname, 'public/assets'));
+
 const copyPatterns = [
   { 
     from: 'public/manifest.json', 
@@ -22,6 +25,14 @@ const copyPatterns = [
     to: 'middleware-tab.js'
   }
 ];
+
+// Only add assets if the directory exists
+if (assetsExist) {
+  copyPatterns.push({
+    from: 'public/assets',
+    to: 'assets'
+  });
+}
 
 // Only add icons if they exist
 if (iconsExist) {

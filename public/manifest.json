@@ -36,6 +36,10 @@
     {
       "resources": ["middleware-tab.html", "middleware-tab.js"],
       "matches": ["<all_urls>"]
+    },
+    {
+      "resources": ["assets/images/*"],
+      "matches": ["<all_urls>"]
     }
   ]
 } 
