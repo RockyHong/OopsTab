@@ -353,14 +353,19 @@ const SettingsPanel: React.FC = () => {
           setExportedFilename(savedFilename);
           setShowExportSuccess(true);
         } catch (err) {
-          // User might have cancelled the save dialog or the API failed
-          console.warn("File System Access API operation failed:", err);
-
-          // Fall back to the traditional download method regardless of error type
-          // This is more reliable than trying to differentiate between error types
-          const savedFilename = downloadFile(jsonData);
-          setExportedFilename(savedFilename);
-          setShowExportSuccess(true);
+          // Check if this is an AbortError (user canceled the file picker)
+          // DOMException with name "AbortError" is thrown when user cancels
+          if (err instanceof DOMException && err.name === "AbortError") {
+            // User canceled the save dialog - this is expected behavior
+            console.log("User canceled the file save dialog");
+            // Don't fall back to download or show error
+          } else {
+            console.warn("File System Access API operation failed:", err);
+            // Only fall back to download for actual errors, not user cancellation
+            const savedFilename = downloadFile(jsonData);
+            setExportedFilename(savedFilename);
+            setShowExportSuccess(true);
+          }
         }
       } else {
         // Fall back for browsers without File System Access API
