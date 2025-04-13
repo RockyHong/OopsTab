@@ -23,6 +23,7 @@ if (![0, 1, 2, 3].includes(level)) {
 const manifestPath = path.join(__dirname, '..', 'public', 'manifest.json');
 const packagePath = path.join(__dirname, '..', 'package.json');
 
+console.log('Reading manifest and package files...');
 let manifest, packageJson;
 try {
   manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
@@ -34,6 +35,7 @@ try {
 
 // Get current version
 const currentVersion = manifest.version;
+console.log(`Current version: ${currentVersion}`);
 
 // Parse version components
 const versionParts = currentVersion.split('.').map(Number);
@@ -50,40 +52,50 @@ if (level > 0) {
   switch (level) {
     case 1: // Patch
       patch += 1;
+      console.log(`Updating patch version: ${patch}`);
       break;
     case 2: // Minor
       minor += 1;
       patch = 0;
+      console.log(`Updating minor version: ${minor}.0`);
       break;
     case 3: // Major
       major += 1;
       minor = 0;
       patch = 0;
+      console.log(`Updating major version: ${major}.0.0`);
       break;
   }
 
   // Create new version string
   newVersion = `${major}.${minor}.${patch}`;
+  console.log(`New version: ${newVersion}`);
 
   // Update manifest.json
+  console.log('Updating manifest.json...');
   manifest.version = newVersion;
   fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
 
   // Update package.json
+  console.log('Updating package.json...');
   packageJson.version = newVersion;
   fs.writeFileSync(packagePath, JSON.stringify(packageJson, null, 2));
-
+  console.log('Files updated successfully');
 }
 
 // Git operations
 try {
   // Check if there are uncommitted changes and we're not in tag-only mode
   if (level > 0) {
+    console.log('Checking git status...');
     const status = execSync('git status --porcelain').toString().trim();
     if (status) {
-
+      console.log('Committing changes...');
       execSync('git add ../public/manifest.json ../package.json');
       execSync(`git commit -m "Bump version to ${newVersion}"`);
+      console.log('Changes committed');
+    } else {
+      console.log('No changes to commit');
     }
   }
 
@@ -91,8 +103,10 @@ try {
   const tagVersion = level === 0 ? currentVersion : newVersion;
 
   // Create and push tag
-
+  console.log(`Creating tag v${tagVersion}...`);
   execSync(`git tag -a v${tagVersion} -m "Version ${tagVersion}"`);
+  console.log(`Tag v${tagVersion} created successfully`);
+  console.log('You can push the tag with: git push origin --tags');
 
 } catch (error) {
   console.error(`Git operation failed: ${error.message}`);
