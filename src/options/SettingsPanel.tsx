@@ -45,6 +45,13 @@ const SettingsPanel: React.FC = () => {
   const [showDeleteSuccess, setShowDeleteSuccess] = useState(false);
   const [deletedCount, setDeletedCount] = useState(0);
 
+  // Import success modal state
+  const [showImportSuccess, setShowImportSuccess] = useState(false);
+  const [importedCount, setImportedCount] = useState(0);
+
+  // Delete confirmation modal state
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
   // Format bytes to human-readable format (KB, MB)
   const formatBytes = (bytes: number): string => {
     if (bytes < 1024) {
@@ -167,32 +174,103 @@ const SettingsPanel: React.FC = () => {
     );
   };
 
-  // Handle deleting all snapshots
-  const handleDeleteAllSnapshots = async () => {
-    if (
-      window.confirm(
-        "Are you sure you want to delete ALL snapshots? This action cannot be undone."
-      )
-    ) {
-      setIsLoading(true);
-      try {
-        // Save the count before deleting
-        const count = storageStatus.itemCounts.windows;
-        await deleteAllSnapshots();
+  // Import Success Modal component
+  const ImportSuccessModal: React.FC<{
+    isOpen: boolean;
+    onClose: () => void;
+    count: number;
+  }> = ({ isOpen, onClose, count }) => {
+    return (
+      <Modal isOpen={isOpen} onClose={onClose} title="Import Successful">
+        <div className="space-y-4">
+          <div className="flex items-center space-x-3">
+            <CheckCircleIcon className="h-6 w-6 text-green-500 flex-shrink-0" />
+            <Typography variant="body" className="mb-0">
+              {count === 1
+                ? "1 snapshot was successfully imported."
+                : `${count} snapshots were successfully imported.`}
+            </Typography>
+          </div>
 
-        // Set delete success info
-        setDeletedCount(count);
-        setShowDeleteSuccess(true);
+          <div className="bg-gray-50 p-3 rounded-md border border-gray-200">
+            <Typography variant="body-sm" className="mb-0 text-text-secondary">
+              The imported snapshots are now available in your OopsTab.
+            </Typography>
+          </div>
 
-        // Reload storage stats after deletion
-        await loadData();
-      } catch (err) {
-        console.error("Error deleting snapshots:", err);
-        setStatusMessage("Error deleting snapshots. Please try again.");
-      } finally {
-        setIsLoading(false);
-      }
+          <div className="flex justify-center pt-4 mt-2">
+            <Button variant="primary" onClick={onClose} className="px-6">
+              Got It
+            </Button>
+          </div>
+        </div>
+      </Modal>
+    );
+  };
+
+  // Delete Confirm Modal component
+  const DeleteConfirmModal: React.FC<{
+    isOpen: boolean;
+    onClose: () => void;
+    onConfirm: () => void;
+  }> = ({ isOpen, onClose, onConfirm }) => {
+    return (
+      <Modal isOpen={isOpen} onClose={onClose} title="Delete All Snapshots">
+        <div className="space-y-4">
+          <div className="flex items-center space-x-3">
+            <TrashIcon className="h-6 w-6 text-red-500 flex-shrink-0" />
+            <Typography variant="body" className="mb-0">
+              Are you sure you want to delete ALL snapshots?
+            </Typography>
+          </div>
+
+          <div className="bg-red-50 p-3 rounded-md border border-red-100">
+            <Typography variant="body-sm" className="mb-0 text-red-700">
+              This action cannot be undone. All window snapshots will be
+              permanently removed.
+            </Typography>
+          </div>
+
+          <div className="flex justify-center gap-3 pt-4 mt-2">
+            <Button variant="passive" onClick={onClose} className="px-6">
+              Cancel
+            </Button>
+            <Button variant="danger" onClick={onConfirm} className="px-6">
+              Delete All
+            </Button>
+          </div>
+        </div>
+      </Modal>
+    );
+  };
+
+  // Actual function to perform deletion
+  const performDeletion = async () => {
+    setShowDeleteConfirm(false);
+    setIsLoading(true);
+    try {
+      // Save the count before deleting
+      const count = storageStatus.itemCounts.windows;
+      await deleteAllSnapshots();
+
+      // Set delete success info
+      setDeletedCount(count);
+      setShowDeleteSuccess(true);
+
+      // Reload storage stats after deletion
+      await loadData();
+    } catch (err) {
+      console.error("Error deleting snapshots:", err);
+      setStatusMessage("Error deleting snapshots. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
+  };
+
+  // Handle deleting all snapshots
+  const handleDeleteAllSnapshots = () => {
+    // Show confirmation modal
+    setShowDeleteConfirm(true);
   };
 
   // Export Success Modal component
@@ -353,7 +431,12 @@ const SettingsPanel: React.FC = () => {
             throw new Error("Failed to read file");
           }
 
-          await importSnapshots(jsonData);
+          // Import the snapshots
+          const result = await importSnapshots(jsonData);
+
+          // Set import success data and show modal
+          setImportedCount(result.count || 0);
+          setShowImportSuccess(true);
 
           // Reload storage stats to show the imported data
           await loadData();
@@ -739,6 +822,20 @@ const SettingsPanel: React.FC = () => {
         isOpen={showDeleteSuccess}
         onClose={() => setShowDeleteSuccess(false)}
         count={deletedCount}
+      />
+
+      {/* Import Success Modal */}
+      <ImportSuccessModal
+        isOpen={showImportSuccess}
+        onClose={() => setShowImportSuccess(false)}
+        count={importedCount}
+      />
+
+      {/* Delete Confirm Modal */}
+      <DeleteConfirmModal
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={performDeletion}
       />
     </div>
   );

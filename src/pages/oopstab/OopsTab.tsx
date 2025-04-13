@@ -1175,7 +1175,7 @@ const SnapshotsPanel: React.FC = () => {
                 Delete ({selectedSnapshots.size})
               </Button>
               <Button
-                variant="primary"
+                variant="passive"
                 onClick={handleBulkRestore}
                 disabled={selectedSnapshots.size === 0}
               >

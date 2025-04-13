@@ -279,9 +279,11 @@ export const exportSnapshots = async (): Promise<string> => {
 /**
  * Import snapshots from a JSON string
  * @param jsonData JSON string containing snapshots
- * @returns Promise resolving to boolean indicating success
+ * @returns Promise resolving to an object with import results
  */
-export const importSnapshots = async (jsonData: string): Promise<boolean> => {
+export const importSnapshots = async (
+  jsonData: string
+): Promise<{ success: boolean; count: number }> => {
   try {
     const importedSnapshots = JSON.parse(jsonData) as SnapshotMap;
 
@@ -292,6 +294,9 @@ export const importSnapshots = async (jsonData: string): Promise<boolean> => {
 
     // Get existing snapshots to merge with
     const existingSnapshots = await getAllSnapshots();
+
+    // Count imported snapshots
+    const importCount = Object.keys(importedSnapshots).length;
 
     // Merge snapshots, preferring the more recent version
     for (const [id, snapshot] of Object.entries(importedSnapshots)) {
@@ -305,7 +310,7 @@ export const importSnapshots = async (jsonData: string): Promise<boolean> => {
 
     // Save merged snapshots
     await saveAllSnapshots(existingSnapshots);
-    return true;
+    return { success: true, count: importCount };
   } catch (err) {
     console.error("Error importing snapshots:", err);
     throw new Error(
