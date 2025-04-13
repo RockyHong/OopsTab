@@ -164,74 +164,64 @@ const SettingsPanel: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Snapshot Settings Card */}
         <Card className="border rounded-lg h-full flex flex-col">
-          <Typography variant="h3" className="text-primary-dark mb-4">
-            Snapshot Settings
-          </Typography>
+          <div className="p-4 flex-grow flex flex-col">
+            <Typography variant="h3" className="text-primary-dark mb-4">
+              Snapshot Settings
+            </Typography>
 
-          <div className="space-y-4 flex-grow flex flex-col">
-            <div className="flex-grow">
-              <div>
-                {isLoading ? (
-                  <div className="p-3 text-center">
-                    <Typography variant="body">Loading settings...</Typography>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label
+                  htmlFor="autosaveDebounce"
+                  className="block text-sm font-medium text-text-primary"
+                >
+                  Autosave Debounce (seconds)
+                </label>
+                <div className="flex items-center">
+                  <input
+                    id="autosaveDebounce"
+                    type="number"
+                    value={(config.autosaveDebounce / 1000).toFixed(1)}
+                    onChange={(e) => {
+                      const seconds = parseFloat(e.target.value);
+                      if (!isNaN(seconds)) {
+                        const milliseconds = Math.round(seconds * 1000);
+                        handleInputChange(
+                          {
+                            target: { value: milliseconds.toString() },
+                          } as React.ChangeEvent<HTMLInputElement>,
+                          "autosaveDebounce",
+                          1000,
+                          60000
+                        );
+                      }
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
+                    min="1"
+                    max="60"
+                    step="0.1"
+                  />
+                  <div className="ml-2 text-sm text-text-secondary">
+                    seconds
                   </div>
-                ) : (
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <label
-                        htmlFor="autosaveDebounce"
-                        className="block text-sm font-medium text-text-primary"
-                      >
-                        Autosave Debounce (seconds)
-                      </label>
-                      <div className="flex items-center">
-                        <input
-                          id="autosaveDebounce"
-                          type="number"
-                          value={(config.autosaveDebounce / 1000).toFixed(1)}
-                          onChange={(e) => {
-                            const seconds = parseFloat(e.target.value);
-                            if (!isNaN(seconds)) {
-                              const milliseconds = Math.round(seconds * 1000);
-                              handleInputChange(
-                                {
-                                  target: { value: milliseconds.toString() },
-                                } as React.ChangeEvent<HTMLInputElement>,
-                                "autosaveDebounce",
-                                1000,
-                                60000
-                              );
-                            }
-                          }}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
-                          min="1"
-                          max="60"
-                          step="0.1"
-                        />
-                        <div className="ml-2 text-sm text-text-secondary">
-                          seconds
-                        </div>
-                      </div>
-                      <p className="text-xs text-text-secondary">
-                        Time to wait after tab changes before creating an
-                        auto-snapshot (1-60 seconds)
-                      </p>
-                    </div>
-
-                    {statusMessage && (
-                      <div
-                        className={`p-2 rounded-md text-sm ${
-                          statusMessage.includes("Error")
-                            ? "bg-red-100 text-red-800"
-                            : "bg-green-100 text-green-800"
-                        }`}
-                      >
-                        {statusMessage}
-                      </div>
-                    )}
-                  </div>
-                )}
+                </div>
+                <p className="text-xs text-text-secondary">
+                  Time to wait after tab changes before creating an
+                  auto-snapshot (1-60 seconds)
+                </p>
               </div>
+
+              {statusMessage && (
+                <div
+                  className={`p-2 rounded-md text-sm ${
+                    statusMessage.includes("Error")
+                      ? "bg-red-100 text-red-800"
+                      : "bg-green-100 text-green-800"
+                  }`}
+                >
+                  {statusMessage}
+                </div>
+              )}
             </div>
 
             {/* Button container pushed to bottom */}
@@ -256,85 +246,87 @@ const SettingsPanel: React.FC = () => {
 
         {/* Storage Management Card */}
         <Card className="border rounded-lg h-full flex flex-col">
-          <Typography variant="h3" className="text-primary-dark mb-4">
-            Storage Management
-          </Typography>
+          <div className="p-4 flex-grow flex flex-col">
+            <Typography variant="h3" className="text-primary-dark mb-4">
+              Storage Management
+            </Typography>
 
-          {isLoading ? (
-            <div className="p-3 text-center">
-              <Typography variant="body">
-                Loading storage information...
-              </Typography>
-            </div>
-          ) : (
-            <div className="space-y-4 flex-grow flex flex-col">
-              <div className="flex-grow">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-gray-50 p-3 rounded-md text-center">
-                    <div className="text-lg font-semibold text-primary">
-                      {formatBytes(storageStatus.usedBytes)}
+            {isLoading ? (
+              <div className="p-3 text-center">
+                <Typography variant="body">
+                  Loading storage information...
+                </Typography>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex-grow">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-gray-50 p-3 rounded-md text-center">
+                      <div className="text-lg font-semibold text-primary">
+                        {formatBytes(storageStatus.usedBytes)}
+                      </div>
+                      <div className="text-sm text-text-secondary">
+                        Storage Usage
+                      </div>
                     </div>
-                    <div className="text-sm text-text-secondary">
-                      Storage Usage
+
+                    <div className="bg-gray-50 p-3 rounded-md text-center">
+                      <div className="text-lg font-semibold text-primary">
+                        {storageStatus.itemCounts.windows}
+                      </div>
+                      <div className="text-sm text-text-secondary">
+                        Windows Snapshots
+                      </div>
                     </div>
                   </div>
 
-                  <div className="bg-gray-50 p-3 rounded-md text-center">
-                    <div className="text-lg font-semibold text-primary">
-                      {storageStatus.itemCounts.windows}
-                    </div>
-                    <div className="text-sm text-text-secondary">
-                      Windows Snapshots
-                    </div>
-                  </div>
+                  {/* Warning message if approaching limit */}
+                  {storageStatus.isApproachingLimit &&
+                    storageStatus.warningMessage && (
+                      <div className="p-2 rounded-md text-sm bg-yellow-100 text-yellow-800">
+                        {storageStatus.warningMessage}
+                      </div>
+                    )}
                 </div>
 
-                {/* Warning message if approaching limit */}
-                {storageStatus.isApproachingLimit &&
-                  storageStatus.warningMessage && (
-                    <div className="p-2 rounded-md text-sm bg-yellow-100 text-yellow-800">
-                      {storageStatus.warningMessage}
-                    </div>
-                  )}
-              </div>
+                <div className="text-sm text-text-secondary">
+                  <p>
+                    OopsTab stores your window snapshots in browser storage,
+                    which has limited space. Each window keeps only its most
+                    recent state.
+                  </p>
+                  <ul className="list-disc pl-5 mt-2 text-xs text-gray-500">
+                    <li>
+                      Each window has one snapshot which gets updated
+                      automatically
+                    </li>
+                    <li>
+                      If storage usage is high, consider deleting snapshots that
+                      are no longer needed
+                    </li>
+                  </ul>
+                </div>
 
-              <div className="text-sm text-text-secondary">
-                <p>
-                  OopsTab stores your window snapshots in browser storage, which
-                  has limited space. Each window keeps only its most recent
-                  state.
-                </p>
-                <ul className="list-disc pl-5 mt-2 text-xs text-gray-500">
-                  <li>
-                    Each window has one snapshot which gets updated
-                    automatically
-                  </li>
-                  <li>
-                    If storage usage is high, consider deleting snapshots that
-                    are no longer needed
-                  </li>
-                </ul>
+                {/* Button container pushed to bottom */}
+                <div className="flex justify-end mt-auto pt-4">
+                  <Button
+                    variant="danger"
+                    onClick={handleDeleteAllSnapshots}
+                    disabled={isLoading}
+                  >
+                    Delete All Snapshots
+                  </Button>
+                </div>
               </div>
-
-              {/* Button container pushed to bottom */}
-              <div className="flex justify-end mt-auto pt-4">
-                <Button
-                  variant="danger"
-                  onClick={handleDeleteAllSnapshots}
-                  disabled={isLoading}
-                >
-                  Delete All Snapshots
-                </Button>
-              </div>
-            </div>
-          )}
+            )}
+          </div>
         </Card>
       </div>
 
       {/* About Section - moved outside the grid */}
       <div className="mt-8 pt-6 border-t border-gray-200 text-center">
         <div className="space-y-2 inline-block">
-          <Typography variant="body" className="text-text-secondary">
+          <Typography variant="body-sm" className="italic text-text-caption">
             OopsTab is an open source project available on GitHub under MIT
             license.
           </Typography>
