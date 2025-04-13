@@ -21,6 +21,7 @@ import {
   WindowIcon,
   ArrowPathIcon,
   ClockIcon as ClockSolidIcon,
+  CheckCircleIcon,
 } from "@heroicons/react/24/solid";
 import {
   ClockIcon,
@@ -130,12 +131,14 @@ const ConfirmationDialog: React.FC<{
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={title}>
       <div className="space-y-4" onKeyDown={handleKeyDown}>
-        <Typography variant="body">{message}</Typography>
-        <div className="flex justify-end space-x-3 pt-2">
-          <Button variant="passive" onClick={onClose} size="sm">
+        <Typography variant="body" className="mb-0">
+          {message}
+        </Typography>
+        <div className="flex justify-center space-x-3 pt-4 mt-2">
+          <Button variant="passive" onClick={onClose} className="px-6">
             Cancel
           </Button>
-          <Button variant="danger" onClick={onConfirm} size="sm">
+          <Button variant="danger" onClick={onConfirm} className="px-6">
             Delete
           </Button>
         </div>
@@ -155,18 +158,18 @@ const MergeConfirmationDialog: React.FC<{
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Merge Snapshots">
       <div className="space-y-4">
-        <Typography variant="body">
+        <Typography variant="body" className="mb-0">
           You are about to merge {selectedCount} snapshots. How would you like
           to merge them?
         </Typography>
-        <div className="flex justify-end space-x-3 pt-2">
-          <Button variant="primary" onClick={onConfirmNew} size="sm">
+        <div className="flex justify-center flex-wrap gap-3 pt-4 mt-2">
+          <Button variant="primary" onClick={onConfirmNew} className="px-6">
             Create New
           </Button>
-          <Button variant="passive" onClick={onConfirmReplace} size="sm">
-            Replace (Merge into first selected)
+          <Button variant="passive" onClick={onConfirmReplace} className="px-6">
+            Replace First
           </Button>
-          <Button variant="passive" onClick={onClose} size="sm">
+          <Button variant="passive" onClick={onClose} className="px-6">
             Cancel
           </Button>
         </div>
@@ -415,6 +418,8 @@ const SnapshotsPanel: React.FC = () => {
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [importError, setImportError] = useState("");
+  const [showExportSuccess, setShowExportSuccess] = useState(false);
+  const [exportedFilename, setExportedFilename] = useState("");
 
   // Lazy loading states
   const [visibleToday, setVisibleToday] = useState<number>(10); // Initial number of today's snapshots to show
@@ -991,29 +996,133 @@ const SnapshotsPanel: React.FC = () => {
     loadSnapshots();
   };
 
+  // Export Success Modal component
+  const ExportSuccessModal: React.FC<{
+    isOpen: boolean;
+    onClose: () => void;
+    filename: string;
+  }> = ({ isOpen, onClose, filename }) => {
+    return (
+      <Modal isOpen={isOpen} onClose={onClose} title="Export Successful">
+        <div className="space-y-4">
+          <div className="flex items-center space-x-3">
+            <CheckCircleIcon className="h-6 w-6 text-green-500 flex-shrink-0" />
+            <Typography variant="body" className="mb-0">
+              Your snapshots were successfully exported.
+            </Typography>
+          </div>
+
+          {filename && (
+            <div className="bg-gray-50 p-3 rounded-md border border-gray-200">
+              <Typography
+                variant="body-sm"
+                className="font-medium mb-1 text-text-secondary"
+              >
+                Exported to:
+              </Typography>
+              <Typography
+                variant="body-sm"
+                className="font-mono break-all text-text-primary mb-0"
+              >
+                {filename}
+              </Typography>
+            </div>
+          )}
+
+          <div className="flex justify-center pt-4 mt-2">
+            <Button variant="primary" onClick={onClose} className="px-6">
+              Got It
+            </Button>
+          </div>
+        </div>
+      </Modal>
+    );
+  };
+
   // Handle export functionality
   const handleExport = async () => {
     try {
       setIsExporting(true);
       const jsonData = await exportSnapshots();
 
-      // Create and download the file
-      const blob = new Blob([jsonData], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
+      // Use the File System Access API if supported
+      if ("showSaveFilePicker" in window) {
+        try {
+          const filename = `oopstab-snapshots-${
+            new Date().toISOString().split("T")[0]
+          }.json`;
 
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `oopstab-snapshots-${
-        new Date().toISOString().split("T")[0]
-      }.json`;
-      a.click();
+          // @ts-ignore - TypeScript might not have types for this API yet
+          const fileHandle = await window.showSaveFilePicker({
+            suggestedName: filename,
+            types: [
+              {
+                description: "JSON Files",
+                accept: {
+                  "application/json": [".json"],
+                },
+              },
+            ],
+          });
 
-      URL.revokeObjectURL(url);
+          // Create a writable stream and write the file
+          // @ts-ignore - TypeScript might not have types for this API yet
+          const writable = await fileHandle.createWritable();
+          await writable.write(jsonData);
+          await writable.close();
+
+          console.log("File saved successfully using File System Access API");
+
+          // Show success modal with the actual filename (might be different from suggested)
+          // @ts-ignore - TypeScript might not have types for this API yet
+          const savedFilename = fileHandle.name || filename;
+          setExportedFilename(savedFilename);
+          setShowExportSuccess(true);
+        } catch (err) {
+          // User might have cancelled the save dialog
+          console.warn("File System Access API operation failed:", err);
+
+          // Check if this was a user cancellation or a real error
+          // The error for cancellation is typically DOMException with name "AbortError"
+          if (err instanceof DOMException && err.name === "AbortError") {
+            console.log("User cancelled the save dialog");
+            // Don't fall back to download in this case
+          } else {
+            // For other errors, fall back to the traditional download
+            console.warn("Falling back to download due to error:", err);
+            const savedFilename = downloadFile(jsonData);
+            setExportedFilename(savedFilename);
+            setShowExportSuccess(true);
+          }
+        }
+      } else {
+        // Fall back for browsers without File System Access API
+        const savedFilename = downloadFile(jsonData);
+        setExportedFilename(savedFilename);
+        setShowExportSuccess(true);
+      }
     } catch (err) {
       console.error("Error exporting snapshots:", err);
     } finally {
       setIsExporting(false);
     }
+  };
+
+  // Helper function for traditional file download
+  const downloadFile = (jsonData: string): string => {
+    const filename = `oopstab-snapshots-${
+      new Date().toISOString().split("T")[0]
+    }.json`;
+    const blob = new Blob([jsonData], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+
+    URL.revokeObjectURL(url);
+    return filename;
   };
 
   // Handle import functionality
@@ -1707,6 +1816,13 @@ const SnapshotsPanel: React.FC = () => {
         onConfirmNew={() => mergeSnapshots(true)}
         onConfirmReplace={() => mergeSnapshots(false)}
         selectedCount={selectedSnapshots.size}
+      />
+
+      {/* Export Success Modal */}
+      <ExportSuccessModal
+        isOpen={showExportSuccess}
+        onClose={() => setShowExportSuccess(false)}
+        filename={exportedFilename}
       />
     </div>
   );
