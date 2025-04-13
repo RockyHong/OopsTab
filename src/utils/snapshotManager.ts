@@ -72,7 +72,7 @@ export const getConfig = async (): Promise<OopsConfig> => {
 export const saveConfig = async (config: OopsConfig): Promise<void> => {
   try {
     await browser.storage.local.set({ [CONFIG_KEY]: config });
-    console.log("Config saved:", config);
+
   } catch (err) {
     console.error("Error saving config:", err);
   }
@@ -129,14 +129,13 @@ export const saveAllSnapshots = async (
   try {
     // Always save to local storage
     await browser.storage.local.set({ [SNAPSHOTS_KEY]: snapshotMap });
-    console.log("Snapshots saved to local storage:", snapshotMap);
 
     // Check if sync is enabled
     const config = await getConfig();
     if (config.syncEnabled) {
       try {
         await saveAllSnapshotsToSync(snapshotMap);
-        console.log("Snapshots also saved to sync storage");
+
       } catch (err) {
         console.error("Error saving snapshots to sync storage:", err);
       }
@@ -193,7 +192,6 @@ export const saveAllSnapshotsToSync = async (
         await browser.storage.sync.set({ [key]: value });
       }
 
-      console.log(`Saved ${chunkCount} chunks to sync storage`);
     } else {
       // Small enough to save directly
       await browser.storage.sync.set({
@@ -446,16 +444,12 @@ export const cacheWindowState = async (windowId: number): Promise<void> => {
       oopsWindowId,
     });
 
-    console.log(
-      `Cached state for window ${windowId} with ${tabs.length} tabs for potential closure`
-    );
-
     // Set a timeout to remove this from cache after 30 seconds
     // In case the window doesn't actually close
     setTimeout(() => {
       if (windowStateCache.has(windowId)) {
         windowStateCache.delete(windowId);
-        console.log(`Removed stale window state cache for window ${windowId}`);
+
       }
     }, 30000);
   } catch (err) {
@@ -484,7 +478,7 @@ export const createWindowSnapshot = async (
 
     // Don't create snapshots for empty windows
     if (tabs.length === 0) {
-      console.log(`Skipping snapshot for window ${windowId} - no tabs`);
+
       return false;
     }
 
@@ -518,9 +512,7 @@ export const createWindowSnapshot = async (
 
     // Prevent snapshotting single-tab windows unless they have groups
     if (tabs.length === 1 && groups.length === 0) {
-      console.log(
-        `Skipping snapshot for window ${windowId} - only one tab and no groups`
-      );
+
       return false; // Do not proceed to create/save the snapshot
     }
 
@@ -580,9 +572,7 @@ export const createWindowSnapshot = async (
       const idMap = await getWindowIdMap();
       idMap[windowId] = mergedInto;
       await saveWindowIdMap(idMap);
-      console.log(
-        `Updated window ${windowId} mapping to point to merged snapshot ${mergedInto}`
-      );
+
     }
 
     // Save back to storage
@@ -596,13 +586,7 @@ export const createWindowSnapshot = async (
       groups,
       oopsWindowId: mergedInto || oopsWindowId, // Use merged ID if available
     });
-    console.log(
-      `Cached state for window ${windowId} with ${tabs.length} tabs along with snapshot`
-    );
 
-    console.log(
-      `Created snapshot for window ${windowId} with ${tabs.length} tabs`
-    );
     return true;
   } catch (err) {
     console.error("Error creating window snapshot:", err);
@@ -641,9 +625,6 @@ export const deleteSnapshot = async (
   delete allSnapshots[oopsWindowId];
   await saveAllSnapshots(allSnapshots);
 
-  console.log(
-    `Deleted snapshot for window ${oopsWindowId} (window tracking preserved, marked as deleted but active window)`
-  );
   return true;
 };
 
@@ -662,9 +643,7 @@ export const deleteAllSnapshots = async (): Promise<boolean> => {
     }
 
     await saveAllSnapshots({}); // Save an empty map
-    console.log(
-      "Deleted all snapshots (tracking active windows for save-on-close)"
-    );
+
     return true;
   } catch (err) {
     console.error("Error deleting all snapshots:", err);
@@ -698,7 +677,7 @@ export const renameSnapshot = async (
 
     // Save back to storage
     await saveAllSnapshots(snapshots);
-    console.log(`Snapshot for ${oopsWindowId} renamed to "${newName}"`);
+
     return true;
   } catch (err) {
     console.error("Error renaming snapshot:", err);
@@ -855,16 +834,10 @@ export const createFinalWindowSnapshot = async (
       return false;
     }
 
-    console.log(
-      `Creating final snapshot for window ${windowId} with oopsWindowId ${oopsWindowId}`
-    );
-
     // Check if this window was previously deleted in the UI
     const wasDeleted = deletedWindowSnapshots.has(oopsWindowId);
     if (wasDeleted) {
-      console.log(
-        `Window ${windowId} (${oopsWindowId}) was previously deleted in UI, will force save on close`
-      );
+
       // Remove from our tracking set since we're handling it now
       deletedWindowSnapshots.delete(oopsWindowId);
     }
@@ -880,15 +853,11 @@ export const createFinalWindowSnapshot = async (
 
       // If we got no tabs but have cached data, use the cache
       if ((!tabs || tabs.length === 0) && cachedData) {
-        console.log(
-          `Window ${windowId} has no tabs, using cached data with ${cachedData.tabsData.length} tabs`
-        );
+
         usedCache = true;
       }
     } catch (e) {
-      console.log(
-        `Window ${windowId} appears to be closed already, will try to use cached data`
-      );
+
       if (cachedData) {
         usedCache = true;
       } else {
@@ -908,13 +877,11 @@ export const createFinalWindowSnapshot = async (
 
       // Now that we've used the cache, remove it
       windowStateCache.delete(windowId);
-      console.log(`Used and removed cached data for window ${windowId}`);
+
     } else {
       // Don't create snapshots for empty windows if we don't have cached data
       if (!tabs || tabs.length === 0) {
-        console.log(
-          `Skipping final snapshot for window ${windowId} - no tabs and no cached data`
-        );
+
         return false;
       }
 
@@ -1004,13 +971,6 @@ export const createFinalWindowSnapshot = async (
     // Save back to storage
     await saveAllSnapshots(snapshots);
 
-    console.log(
-      `Created final snapshot for closing window ${windowId} with ${
-        tabsData.length
-      } tabs${wasDeleted ? " (recovered after UI deletion)" : ""}${
-        usedCache ? " (used cached data)" : ""
-      }`
-    );
     return true;
   } catch (err) {
     console.error("Error creating final window snapshot:", err);
@@ -1025,7 +985,7 @@ export const createFinalWindowSnapshot = async (
 export const resetDeletedWindowTracking = (): void => {
   // Clear the set of tracked deleted windows
   deletedWindowSnapshots.clear();
-  console.log("Deleted window tracking reset");
+
 };
 
 /**
@@ -1052,11 +1012,6 @@ export const toggleSnapshotStar = async (
     // Save back to storage
     await saveAllSnapshots(snapshots);
 
-    console.log(
-      `${
-        isStarred ? "Starred" : "Unstarred"
-      } snapshot for window ${oopsWindowId}`
-    );
     return true;
   } catch (err) {
     console.error("Error toggling snapshot star:", err);
@@ -1127,9 +1082,6 @@ export const cleanupSnapshots = async (
     // Save the filtered snapshot map
     await saveAllSnapshots(newSnapshotMap);
 
-    console.log(
-      `Cleaned up snapshots: kept ${starred.length} starred and ${finalNonStarredToKeep.length} recent non-starred snapshots, removed ${removedCount}`
-    );
     return true;
   } catch (err) {
     console.error("Error cleaning up snapshots:", err);
@@ -1285,11 +1237,7 @@ export const mergeSnapshots = (
       };
       // Remove the new snapshot
       delete mergedSnapshots[newOopsWindowId];
-      console.log(
-        `Merged new snapshot for ${newOopsWindowId} into existing snapshot ${mostSimilarId} (${highestSimilarity.toFixed(
-          2
-        )}% similarity)`
-      );
+
       return { mergedSnapshots, mergedInto: mostSimilarId };
     } else {
       // Keep the new snapshot, but preserve any valuable info from the existing one
@@ -1300,11 +1248,7 @@ export const mergeSnapshots = (
       };
       // Remove the existing snapshot
       delete mergedSnapshots[mostSimilarId];
-      console.log(
-        `Merged existing snapshot ${mostSimilarId} into new snapshot ${newOopsWindowId} (${highestSimilarity.toFixed(
-          2
-        )}% similarity)`
-      );
+
       return { mergedSnapshots, mergedInto: newOopsWindowId };
     }
   }
@@ -1388,11 +1332,6 @@ export const deduplicateSnapshots = async (
             // Track the mapping
             idMappings[id2] = id1;
 
-            console.log(
-              `Deduplicated: Merged snapshot ${id2} into ${id1} (${similarity.similarityPercentage.toFixed(
-                2
-              )}% similarity)`
-            );
           } else {
             // Keep snapshot2, merge snapshot1 into it
             snapshots[id2] = {
@@ -1407,12 +1346,6 @@ export const deduplicateSnapshots = async (
 
             // Track the mapping
             idMappings[id1] = id2;
-
-            console.log(
-              `Deduplicated: Merged snapshot ${id1} into ${id2} (${similarity.similarityPercentage.toFixed(
-                2
-              )}% similarity)`
-            );
 
             // Since we're removing snapshot1, we need to break and move to the next i
             break;
@@ -1440,9 +1373,7 @@ export const deduplicateSnapshots = async (
             // Update the mapping to point to the snapshot it was merged into
             idMap[parseInt(windowIdStr, 10)] = mergedInto;
             updatedMap = true;
-            console.log(
-              `Updated window ${windowIdStr} mapping to point to merged snapshot ${mergedInto}`
-            );
+
           }
         }
 

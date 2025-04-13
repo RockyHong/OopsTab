@@ -34,16 +34,6 @@ const detectBrowser = async () => {
     // Feature detection
     browserInfo.supportsTabGroups = typeof api.tabGroups !== "undefined";
 
-    console.log(
-      `Browser detected: ${
-        browserInfo.isFirefox
-          ? "Firefox"
-          : browserInfo.isChrome
-          ? "Chrome"
-          : "Unknown"
-      }`
-    );
-    console.log(`Tab Groups API supported: ${browserInfo.supportsTabGroups}`);
   } catch (err) {
     console.error("Error detecting browser:", err);
   }

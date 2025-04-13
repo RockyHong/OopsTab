@@ -39,31 +39,21 @@ export const logStorageState = async (): Promise<void> => {
 
     // Log window ID map
     const windowIdMap = await getWindowIdMap();
-    console.log("Window ID Map:", windowIdMap);
 
     // Count windows mapped
     const windowCount = Object.keys(windowIdMap).length;
-    console.log(`${windowCount} window(s) currently mapped`);
 
     // Log snapshots
     const snapshots = await getAllSnapshots();
-    console.log("All Snapshots:", snapshots);
 
     // Count snapshots
     const totalSnapshotCount = Object.keys(snapshots).length;
-    console.log(`${totalSnapshotCount} window snapshots stored`);
 
     // Log storage usage
     const usage = await getStorageUsage();
     const bytesUsed = usage.bytesInUse;
     const quota = await getStorageQuota();
     const percentUsed = Math.round((bytesUsed / quota) * 100);
-
-    console.log(
-      `Storage: ${formatBytes(bytesUsed)} / ${formatBytes(
-        quota
-      )} (${percentUsed}%)`
-    );
 
     console.groupEnd();
   } catch (err) {
@@ -79,7 +69,7 @@ export const clearAllData = async (): Promise<void> => {
   if (confirm("Are you sure you want to clear all OopsTab data?")) {
     try {
       await browser.storage.local.remove(["oopsWindowIdMap", "oopsSnapshots"]);
-      console.log("📢 All OopsTab data cleared from storage");
+
     } catch (err) {
       console.error("Error clearing data:", err);
     }
@@ -211,7 +201,6 @@ export const createTestWindow = async (
       }
     }
 
-    console.log(`Created test window with ${tabCount} tabs`);
     return windowId;
   } catch (err) {
     console.error("Error creating test window:", err);
@@ -240,9 +229,6 @@ export const setupDebugActions = (): void => {
     window.oopsTab.debug.createTestWindow = createTestWindow;
     window.oopsTab.debug.createBulkTestSnapshots = createBulkTestSnapshots;
 
-    console.log(
-      "OopsTab debug functions are available via window.oopsTab.debug"
-    );
   }
 };
 
@@ -258,9 +244,6 @@ export const createBulkTestSnapshots = async (
   tabsPerSnapshot: number = 10
 ): Promise<boolean> => {
   try {
-    console.log(
-      `Creating ${count} test snapshots across ${windowCount} windows...`
-    );
 
     // Get all existing snapshots
     const snapshots = await getAllSnapshots();
@@ -293,7 +276,6 @@ export const createBulkTestSnapshots = async (
 
     // Save all snapshots
     await saveAllSnapshots(snapshots);
-    console.log(`Successfully created ${windowCount} test windows`);
 
     // Update storage stats
     await updateStorageStats();
@@ -366,7 +348,6 @@ export const testWindowReopeningDetection = async (): Promise<
   string | null
 > => {
   try {
-    console.log("Testing window reopening detection...");
 
     // Create a unique test window ID
     const testWindowId = `test-reopen-${Date.now()}`;
@@ -402,7 +383,6 @@ export const testWindowReopeningDetection = async (): Promise<
 
     // Save the test snapshot
     await saveAllSnapshots(snapshots);
-    console.log(`Created test snapshot with ID ${testWindowId}`);
 
     // Now open a new window with the same URLs to trigger the detection
     const browser = (await import("./browserAPI")).default;
@@ -422,11 +402,6 @@ export const testWindowReopeningDetection = async (): Promise<
         windowId: newWindow.id,
       });
     }
-
-    console.log(`Created test window with ID ${newWindow.id}`);
-    console.log(
-      "Wait a moment for the detection to run, then check the extension logs"
-    );
 
     return testWindowId;
   } catch (err) {

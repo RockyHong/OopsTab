@@ -593,7 +593,7 @@ const SnapshotsPanel: React.FC = () => {
       if (areaName === "local") {
         // Look for changes to the oopsSnapshots key
         if (changes.oopsSnapshots) {
-          console.log("Snapshot storage changes detected, refreshing...");
+
           loadSnapshots();
           checkOpenWindows();
         }
@@ -622,7 +622,7 @@ const SnapshotsPanel: React.FC = () => {
     try {
       const success = await restoreSession(oopsWindowId);
       if (success) {
-        console.log(`Successfully restored window ${oopsWindowId}`);
+
       } else {
         console.error(`Failed to restore window ${oopsWindowId}`);
       }
@@ -668,7 +668,7 @@ const SnapshotsPanel: React.FC = () => {
         for (const windowId of selectedSnapshots) {
           await deleteSnapshot(windowId);
         }
-        console.log(`Successfully deleted ${selectedSnapshots.size} snapshots`);
+
         // Refresh the list
         loadSnapshots();
       } catch (err) {
@@ -685,7 +685,7 @@ const SnapshotsPanel: React.FC = () => {
       try {
         const success = await deleteSnapshot(windowId);
         if (success) {
-          console.log(`Successfully deleted snapshot for window ${windowId}`);
+
           // Refresh the list
           loadSnapshots();
         } else {
@@ -820,7 +820,6 @@ const SnapshotsPanel: React.FC = () => {
 
       await browser.storage.local.set({ oopsSnapshots: storedSnapshots });
 
-      console.log("Successfully merged snapshots");
       loadSnapshots();
     } catch (err) {
       console.error("Error merging snapshots:", err);

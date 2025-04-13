@@ -32,7 +32,7 @@ const Navigation: React.FC = () => {
   const gifUrl = (() => {
     try {
       const url = browser.runtime.getURL("assets/images/rocky-hong-gif.gif");
-      console.log("Attempting to load image from:", url);
+
       return url;
     } catch (e) {
       console.error("Error loading GIF:", e);
@@ -40,7 +40,7 @@ const Navigation: React.FC = () => {
       const fallbackUrl = chrome.runtime.getURL
         ? chrome.runtime.getURL("assets/images/rocky-hong-gif.gif")
         : "/assets/images/rocky-hong-gif.gif";
-      console.log("Using fallback URL:", fallbackUrl);
+
       return fallbackUrl;
     }
   })();

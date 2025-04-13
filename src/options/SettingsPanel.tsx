@@ -348,29 +348,19 @@ const SettingsPanel: React.FC = () => {
           await writable.write(jsonData);
           await writable.close();
 
-          console.log("File saved successfully using File System Access API");
-
           // Show success modal with the actual filename (might be different from suggested)
-          // @ts-ignore - TypeScript might not have types for this API yet
           const savedFilename = fileHandle.name || filename;
           setExportedFilename(savedFilename);
           setShowExportSuccess(true);
         } catch (err) {
-          // User might have cancelled the save dialog
+          // User might have cancelled the save dialog or the API failed
           console.warn("File System Access API operation failed:", err);
 
-          // Check if this was a user cancellation or a real error
-          // The error for cancellation is typically DOMException with name "AbortError"
-          if (err instanceof DOMException && err.name === "AbortError") {
-            console.log("User cancelled the save dialog");
-            // Don't fall back to download in this case
-          } else {
-            // For other errors, fall back to the traditional download
-            console.warn("Falling back to download due to error:", err);
-            const savedFilename = downloadFile(jsonData);
-            setExportedFilename(savedFilename);
-            setShowExportSuccess(true);
-          }
+          // Fall back to the traditional download method regardless of error type
+          // This is more reliable than trying to differentiate between error types
+          const savedFilename = downloadFile(jsonData);
+          setExportedFilename(savedFilename);
+          setShowExportSuccess(true);
         }
       } else {
         // Fall back for browsers without File System Access API

@@ -31,7 +31,7 @@ export const findOpenWindow = async (
 export const focusWindow = async (windowId: number): Promise<boolean> => {
   try {
     await browser.windows.update(windowId, { focused: true });
-    console.log(`Focused window ${windowId}`);
+
     return true;
   } catch (err) {
     console.error(`Error focusing window ${windowId}:`, err);
@@ -184,10 +184,9 @@ export const createWindowFromSnapshot = async (
         }
       }
     } else if (snapshot.groups.length > 0) {
-      console.log("Tab groups not supported in this browser");
+
     }
 
-    console.log(`Restored window from snapshot with ${sortedTabs.length} tabs`);
     return newWindowId;
   } catch (err) {
     console.error("Error restoring window from snapshot:", err);
@@ -233,9 +232,7 @@ export const restoreSession = async (
         const idMap = await getWindowIdMap();
         idMap[newWindowId] = oopsWindowId;
         await saveWindowIdMap(idMap);
-        console.log(
-          `Associated new window ${newWindowId} with original oopsWindowId ${oopsWindowId}`
-        );
+
         return true;
       }
 

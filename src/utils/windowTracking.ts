@@ -40,7 +40,7 @@ export const getWindowIdMap = async (): Promise<WindowIdMap> => {
  */
 export const saveWindowIdMap = async (idMap: WindowIdMap): Promise<void> => {
   await browser.storage.local.set({ [WINDOW_ID_MAP_KEY]: idMap });
-  console.log("Window ID map saved:", idMap);
+
 };
 
 /**
@@ -62,9 +62,6 @@ export const registerWindow = async (windowId: number): Promise<string> => {
 
   // Save the updated map
   await saveWindowIdMap(idMap);
-  console.log(
-    `Registered window ${windowId} with oopsWindowId ${oopsWindowId}`
-  );
 
   return oopsWindowId;
 };
@@ -102,9 +99,7 @@ export const findWindowByOopsId = async (
         await browser.windows.get(windowId);
         return windowId; // Window exists, return the ID
       } catch (err) {
-        console.log(
-          `Window ${windowId} no longer exists, will remove from map`
-        );
+
         staleEntries.push(windowId);
       }
     }
@@ -144,9 +139,7 @@ export const initializeWindowTracking = async (): Promise<void> => {
       const oopsWindowId = generateUUID();
       idMap[window.id] = oopsWindowId;
       updatedMap = true;
-      console.log(
-        `Initialized window ${window.id} with oopsWindowId ${oopsWindowId}`
-      );
+
     }
   }
 
@@ -155,8 +148,6 @@ export const initializeWindowTracking = async (): Promise<void> => {
     await saveWindowIdMap(idMap);
   }
 
-  console.log("Window tracking initialized");
-
   // Run snapshot deduplication to clean up any duplicate snapshots
   try {
     // We need to import the snapshot functions here
@@ -164,7 +155,7 @@ export const initializeWindowTracking = async (): Promise<void> => {
     const { deduplicateSnapshots } = await import("./snapshotManager");
     const mergeCount = await deduplicateSnapshots();
     if (mergeCount > 0) {
-      console.log(`Deduplicated ${mergeCount} snapshots during initialization`);
+
     }
   } catch (err) {
     console.error("Error deduplicating snapshots during initialization:", err);
@@ -236,16 +227,12 @@ export const checkForReopenedWindow = async (
           // Check if the window still exists
           try {
             await browser.windows.get(existingWindowId);
-            console.log(
-              `The matched window ID ${bestMatch.oopsWindowId} is already associated with window ${existingWindowId}`
-            );
+
             alreadyMapped = true;
             break;
           } catch (err) {
             // Window doesn't exist anymore, we can reuse the oopsWindowId
-            console.log(
-              `Window ${existingWindowId} no longer exists, can reuse oopsWindowId`
-            );
+
           }
         }
       }
@@ -254,19 +241,12 @@ export const checkForReopenedWindow = async (
       if (!alreadyMapped) {
         idMap[windowId] = bestMatch.oopsWindowId;
         await saveWindowIdMap(idMap);
-        console.log(
-          `Associated window ${windowId} with existing oopsWindowId ${
-            bestMatch.oopsWindowId
-          } (${bestMatch.matchPercentage.toFixed(2)}% URL match)`
-        );
 
         // Run deduplication after associating a window to clean up any potential duplicates
         try {
           const mergeCount = await deduplicateSnapshots();
           if (mergeCount > 0) {
-            console.log(
-              `Deduplicated ${mergeCount} snapshots after reopened window detection`
-            );
+
           }
         } catch (err) {
           console.error(

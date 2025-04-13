@@ -20,14 +20,11 @@ import {
 import browser from "../utils/browserAPI";
 import { STORAGE_KEYS } from "../types";
 
-console.log("OopsTab background service worker initialized");
-
 // Added cleanup function for deleted window tracking
 const cleanupDeletedWindowTracking = async () => {
   try {
     // Reset deleted window tracking on startup
     resetDeletedWindowTracking();
-    console.log("Deleted window tracking reset on startup");
   } catch (err) {
     console.error("Error resetting deleted window tracking:", err);
   }
@@ -35,7 +32,9 @@ const cleanupDeletedWindowTracking = async () => {
 
 // Initialize on startup
 initializeWindowTracking()
-  .then(() => console.log("Window tracking initialized"))
+  .then(() => {
+    // Initialization complete
+  })
   .catch((err) => console.error("Error initializing window tracking:", err));
 
 // Cleanup deleted window tracking on startup
@@ -48,7 +47,7 @@ const debouncedSnapshotCreation = debounce((windowId: number | undefined) => {
   createWindowSnapshot(windowId)
     .then((success) => {
       if (success) {
-        console.log(`Snapshot created for window ${windowId}`);
+        // Snapshot created successfully
       }
     })
     .catch((err) =>
@@ -69,8 +68,6 @@ browser.storage.onChanged.addListener(async (changes, areaName) => {
 
     // Only process sync changes if sync is enabled and the changes are from sync storage
     if (config.syncEnabled && areaName === "sync") {
-      console.log("Processing sync storage changes");
-
       // Check if the changes include our snapshot data (either direct or chunked)
       const hasSnapshotChanges =
         changes[STORAGE_KEYS.SNAPSHOTS_KEY] ||
@@ -80,9 +77,7 @@ browser.storage.onChanged.addListener(async (changes, areaName) => {
         );
 
       if (hasSnapshotChanges) {
-        console.log(
-          "Detected snapshot changes in sync storage, updating local storage"
-        );
+        // Snapshot changes detected
 
         // Get the latest local snapshots
         const localSnapshots = await getAllSnapshots();
@@ -108,18 +103,16 @@ browser.windows.onCreated.addListener((window) => {
     checkForReopenedWindow(windowId)
       .then((isReopenedWindow) => {
         if (isReopenedWindow) {
-          console.log(
-            `Window ${windowId} identified as a reopened window from Chrome history`
-          );
+          // Window was reopened from history
+
           // Create a snapshot to update with latest state
           debouncedSnapshotCreation(windowId);
         } else {
           // Regular new window flow
           registerWindow(windowId)
             .then((oopsWindowId) => {
-              console.log(
-                `Registered window ${windowId} with oopsWindowId ${oopsWindowId}`
-              );
+              // Window registered with ID
+
               // Create initial snapshot for this window
               debouncedSnapshotCreation(windowId);
             })
@@ -133,9 +126,8 @@ browser.windows.onCreated.addListener((window) => {
         // Fallback to normal registration if the check fails
         registerWindow(windowId)
           .then((oopsWindowId) => {
-            console.log(
-              `Registered window ${windowId} with oopsWindowId ${oopsWindowId} (fallback after check error)`
-            );
+            // Fallback registration completed
+
             debouncedSnapshotCreation(windowId);
           })
           .catch((err) =>
@@ -147,9 +139,8 @@ browser.windows.onCreated.addListener((window) => {
 
 // Cache the state of a window more aggressively with retries
 const ensureWindowStateCached = async (windowId: number): Promise<void> => {
-  console.log(
-    `⚠️ Aggressively caching window ${windowId} state before possible closure`
-  );
+  // Begin caching window state
+
   try {
     // First try
     await cacheWindowState(windowId);
@@ -158,7 +149,7 @@ const ensureWindowStateCached = async (windowId: number): Promise<void> => {
     setTimeout(async () => {
       try {
         await cacheWindowState(windowId);
-        console.log(`✅ Second cache attempt for window ${windowId} completed`);
+        // Second cache attempt succeeded
       } catch (err) {
         console.error(
           `Failed second cache attempt for window ${windowId}:`,
@@ -173,9 +164,7 @@ const ensureWindowStateCached = async (windowId: number): Promise<void> => {
     setTimeout(async () => {
       try {
         await cacheWindowState(windowId);
-        console.log(
-          `✅ Recovery cache attempt for window ${windowId} completed`
-        );
+        // Recovery cache attempt succeeded
       } catch (err) {
         console.error(
           `Failed recovery cache attempt for window ${windowId}:`,
@@ -188,12 +177,13 @@ const ensureWindowStateCached = async (windowId: number): Promise<void> => {
 
 // Listen for tab events to trigger snapshots
 browser.tabs.onCreated.addListener((tab) => {
-  console.log(`Tab created in window ${tab.windowId}`);
+  // Tab created
+
   debouncedSnapshotCreation(tab.windowId);
 });
 
 browser.tabs.onRemoved.addListener((tabId, removeInfo) => {
-  console.log(`Tab removed from window ${removeInfo.windowId}`);
+  // Tab removed
 
   // Cache the window state in case this is the last tab and window is about to close
   // Use the aggressive caching function that includes retries
@@ -206,34 +196,38 @@ browser.tabs.onRemoved.addListener((tabId, removeInfo) => {
 browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   // Only trigger on complete load or title changes
   if (changeInfo.status === "complete" || changeInfo.title) {
-    console.log(`Tab updated in window ${tab.windowId}`);
+    // Tab content or title updated
+
     debouncedSnapshotCreation(tab.windowId);
   }
 });
 
 // Listen for tabs being attached to a window (e.g., drag-and-drop)
 browser.tabs.onAttached.addListener((tabId, attachInfo) => {
-  console.log(`Tab ${tabId} attached to window ${attachInfo.newWindowId}`);
+  // Tab attached to window
+
   debouncedSnapshotCreation(attachInfo.newWindowId);
 });
 
 // Listen for tabs being detached from a window (e.g., drag-and-drop)
 browser.tabs.onDetached.addListener((tabId, detachInfo) => {
-  console.log(`Tab ${tabId} detached from window ${detachInfo.oldWindowId}`);
+  // Tab detached from window
+
   debouncedSnapshotCreation(detachInfo.oldWindowId);
 });
 
 // Handle tab groups if supported
 if (browser.tabGroups) {
   browser.tabGroups.onUpdated.addListener((tabGroup) => {
-    console.log(`Tab group updated in window ${tabGroup.windowId}`);
+    // Tab group updated
+
     debouncedSnapshotCreation(tabGroup.windowId);
   });
 }
 
 // Handle window closure
 browser.windows.onRemoved.addListener((windowId) => {
-  console.log(`Window closed: ${windowId}`);
+  // Window closed
 
   // Add a small delay to ensure any in-progress caching completes
   setTimeout(() => {
@@ -241,44 +235,34 @@ browser.windows.onRemoved.addListener((windowId) => {
     // even if the window mapping was previously removed
     (async () => {
       try {
-        console.log(
-          `🔍 Attempting final snapshot for window ${windowId} after delay`
-        );
+        // Create final snapshot for the closed window
+
         const result = await createFinalWindowSnapshot(windowId);
         if (result) {
-          console.log(`Final snapshot created for closed window ${windowId}`);
+          // Final snapshot created successfully
         } else {
-          console.log(
-            `No snapshot was created for closed window ${windowId}, attempting recovery...`
-          );
+          // Failed to create final snapshot, try alternative approach
+
           // Use the already imported window tracking functions
           // instead of dynamically importing them again
           const idMap = await getWindowIdMap();
 
           // If this window already has an ID, we can try to force a snapshot
           if (idMap[windowId]) {
-            console.log(
-              `Found existing oopsWindowId for window ${windowId}, attempting direct snapshot`
-            );
-            createFinalWindowSnapshot(windowId).then((success) =>
-              console.log(
-                `Recovery snapshot ${success ? "succeeded" : "failed"}`
-              )
-            );
+            // Window has existing ID
+
+            createFinalWindowSnapshot(windowId).then((success) => {
+              // Attempted to create final snapshot with existing ID
+            });
           } else {
-            console.log(
-              `No existing mapping for window ${windowId}, attempting to register and snapshot`
-            );
+            // Window has no ID, register it first
+
             // Register the window one last time
             const oopsWindowId = await registerWindow(windowId);
-            console.log(
-              `Emergency registration of window ${windowId} with ID ${oopsWindowId}`
-            );
-            createFinalWindowSnapshot(windowId).then((success) =>
-              console.log(
-                `Emergency snapshot ${success ? "succeeded" : "failed"}`
-              )
-            );
+
+            createFinalWindowSnapshot(windowId).then((success) => {
+              // Created final snapshot after last-minute registration
+            });
           }
         }
       } catch (err) {
