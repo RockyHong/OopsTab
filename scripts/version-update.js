@@ -91,7 +91,7 @@ try {
     const status = execSync('git status --porcelain').toString().trim();
     if (status) {
       console.log('Committing changes...');
-      execSync('git add ../public/manifest.json ../package.json');
+      execSync('git add public/manifest.json package.json');
       execSync(`git commit -m "Bump version to ${newVersion}"`);
       console.log('Changes committed');
     } else {
