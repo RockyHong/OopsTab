@@ -1,9 +1,5 @@
 # OopsTab
 
-## What's OopsTab?
-
-![OopsTab Icon](./public/icons/icon128.png)
-
 A tiny browser extension that automatically snapshots windows and tabs—preserving entire workflow states. Captures those perfect setups: coding sessions with Stack Overflow army, research rabbit holes, your awesome business dashboards, that collection of manga chapters, or those eye candy tabs saved for design inspiration. All that structure stays intact for whenever it's needed again.
 
 ## Why OopsTab?
