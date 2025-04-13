@@ -357,7 +357,7 @@ const SettingsPanel: React.FC = () => {
           // DOMException with name "AbortError" is thrown when user cancels
           if (err instanceof DOMException && err.name === "AbortError") {
             // User canceled the save dialog - this is expected behavior
-            console.log("User canceled the file save dialog");
+
             // Don't fall back to download or show error
           } else {
             console.warn("File System Access API operation failed:", err);
