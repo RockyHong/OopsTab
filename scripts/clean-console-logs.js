@@ -13,6 +13,10 @@ const CONSOLE_PATTERNS = [
 // File extensions to process
 const VALID_EXTENSIONS = ['.js', '.jsx', '.ts', '.tsx'];
 
+// Get the directory of the current script to exclude it from processing
+const SCRIPT_DIR = __dirname;
+const SCRIPT_PATH = __filename;
+
 // Count statistics
 let totalFilesProcessed = 0;
 let totalConsoleLogsRemoved = 0;
@@ -43,7 +47,7 @@ function processFile(filePath) {
   for (const pattern of CONSOLE_PATTERNS) {
     const matches = newContent.match(pattern) || [];
     consoleLogsRemoved += matches.length;
-    
+
     if (matches.length > 0) {
       modified = true;
       // Replace console statements with their semicolon if they had one, or empty string
@@ -68,7 +72,7 @@ function processFile(filePath) {
       fs.writeFileSync(filePath, newContent, 'utf8');
       totalFilesModified++;
       totalConsoleLogsRemoved += consoleLogsRemoved;
-      console.log(`Cleaned ${consoleLogsRemoved} console statements from ${filePath}`);
+
     } catch (err) {
       console.error(`Error writing file ${filePath}: ${err.message}`);
     }
@@ -79,6 +83,12 @@ function processFile(filePath) {
 
 // Process a directory recursively
 function processDirectory(dirPath) {
+  // Skip processing the scripts directory
+  if (dirPath === SCRIPT_DIR) {
+    console.log(`Skipping scripts directory: ${dirPath}`);
+    return;
+  }
+
   // Read directory contents
   let files;
   try {
@@ -91,15 +101,15 @@ function processDirectory(dirPath) {
   // Process each file/directory
   for (const file of files) {
     const fullPath = path.join(dirPath, file);
-    
+
     // Skip node_modules and .git directories
     if (file === 'node_modules' || file === '.git' || file === 'dist') {
       continue;
     }
-    
+
     try {
       const stats = fs.statSync(fullPath);
-      
+
       if (stats.isDirectory()) {
         processDirectory(fullPath);
       } else if (stats.isFile()) {
@@ -113,6 +123,12 @@ function processDirectory(dirPath) {
 
 // Add a dry run option
 function processFileWithDryRun(filePath, dryRun) {
+  // Skip files in the scripts directory
+  if (path.dirname(filePath) === SCRIPT_DIR || filePath === SCRIPT_PATH) {
+    console.log(`Skipping script file: ${filePath}`);
+    return;
+  }
+
   // Check if file has valid extension
   const ext = path.extname(filePath);
   if (!VALID_EXTENSIONS.includes(ext)) {
@@ -135,7 +151,7 @@ function processFileWithDryRun(filePath, dryRun) {
   for (const pattern of CONSOLE_PATTERNS) {
     const matches = newContent.match(pattern) || [];
     consoleLogsRemoved += matches.length;
-    
+
     if (matches.length > 0 && !dryRun) {
       // Replace console statements with their semicolon if they had one, or empty string
       newContent = newContent.replace(pattern, (match, semicolon) => {
@@ -158,7 +174,7 @@ function processFileWithDryRun(filePath, dryRun) {
   // Write back the file if modified and not in dry run mode
   if (consoleLogsRemoved > 0) {
     if (dryRun) {
-      console.log(`[DRY RUN] Would clean ${consoleLogsRemoved} console statements from ${filePath}`);
+      console.log(`Would clean ${consoleLogsRemoved} console statements from ${filePath}`);
     } else {
       try {
         fs.writeFileSync(filePath, newContent, 'utf8');
@@ -176,6 +192,12 @@ function processFileWithDryRun(filePath, dryRun) {
 
 // Process a directory recursively with dry run option
 function processDirectoryWithDryRun(dirPath, dryRun) {
+  // Skip processing the scripts directory
+  if (path.resolve(dirPath) === SCRIPT_DIR) {
+    console.log(`Skipping scripts directory: ${dirPath}`);
+    return;
+  }
+
   // Read directory contents
   let files;
   try {
@@ -188,15 +210,15 @@ function processDirectoryWithDryRun(dirPath, dryRun) {
   // Process each file/directory
   for (const file of files) {
     const fullPath = path.join(dirPath, file);
-    
+
     // Skip node_modules and .git directories
     if (file === 'node_modules' || file === '.git' || file === 'dist') {
       continue;
     }
-    
+
     try {
       const stats = fs.statSync(fullPath);
-      
+
       if (stats.isDirectory()) {
         processDirectoryWithDryRun(fullPath, dryRun);
       } else if (stats.isFile()) {
@@ -211,30 +233,23 @@ function processDirectoryWithDryRun(dirPath, dryRun) {
 // Main function
 function main() {
   const args = process.argv.slice(2);
-  
+
   if (args.length === 0) {
-    console.log('Usage:');
-    console.log('  node clean-console-logs.js <path> [--dry-run]');
-    console.log('');
-    console.log('Options:');
-    console.log('  --dry-run     Show what would be removed without changing files');
-    console.log('');
-    console.log('Examples:');
-    console.log('  node clean-console-logs.js src/components/Button.tsx   # Clean a single file');
-    console.log('  node clean-console-logs.js src/components              # Clean all files in a directory');
-    console.log('  node clean-console-logs.js src --dry-run               # Show what would be removed without changes');
+    console.error('Usage: node clean-console-logs.js <path> [--dry-run]');
+    console.error('  path: Directory or file to process');
+    console.error('  --dry-run: Show what would be done without making changes');
     return;
   }
 
   const targetPath = args[0];
   const dryRun = args.includes('--dry-run');
-  
+
   if (!fs.existsSync(targetPath)) {
     console.error(`Error: Path '${targetPath}' does not exist`);
     return;
   }
-  
-  console.log(`Processing: ${targetPath}${dryRun ? ' (DRY RUN)' : ''}`);
+
+  console.log(`Processing: ${targetPath}`);
   
   const stats = fs.statSync(targetPath);
   if (stats.isDirectory()) {
@@ -242,13 +257,13 @@ function main() {
   } else if (stats.isFile()) {
     processFileWithDryRun(targetPath, dryRun);
   }
-  
-  console.log('\nSummary:');
-  console.log(`- Files processed: ${totalFilesProcessed}`);
+
   if (dryRun) {
-    console.log(`- Files that would be modified: ${totalFilesModified}`);
-    console.log(`- Console statements that would be removed: ${totalConsoleLogsRemoved}`);
+    console.log(`\nDry Run Summary:`);
+    console.log(`- Files processed: ${totalFilesProcessed}`);
   } else {
+    console.log(`\nSummary:`);
+    console.log(`- Files processed: ${totalFilesProcessed}`);
     console.log(`- Files modified: ${totalFilesModified}`);
     console.log(`- Console statements removed: ${totalConsoleLogsRemoved}`);
   }
