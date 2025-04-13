@@ -1,6 +1,6 @@
 {
   "name": "oopstab",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Chrome Extension Snapshot Manager",
   "scripts": {
     "dev": "webpack --watch --config webpack.config.js --mode=development",
