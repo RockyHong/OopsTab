@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "OopsTab",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A tab snapshot manager to preserve your browser sessions",
   "action": {
     "default_icon": {
@@ -34,12 +34,21 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["middleware-tab.html", "middleware-tab.js"],
-      "matches": ["<all_urls>"]
+      "resources": [
+        "middleware-tab.html",
+        "middleware-tab.js"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
     },
     {
-      "resources": ["assets/images/*"],
-      "matches": ["<all_urls>"]
+      "resources": [
+        "assets/images/*"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
     }
   ]
-} 
+}
