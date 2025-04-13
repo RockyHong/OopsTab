@@ -28,7 +28,7 @@ It's that sneaky problem that trips us up when we least expect it, like that tab
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/oopstab.git
+git clone https://github.com/RockyHong/OopsTab.git
 
 # Navigate to project directory
 cd oopstab
