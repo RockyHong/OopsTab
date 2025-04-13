@@ -330,53 +330,31 @@ const DynamicFaviconList: React.FC<DynamicFaviconListProps> = ({
               >
                 {group.name}
               </span>
-              {group.tabs.length > 0 && (
-                <div
-                  key={`group-tab-${group.id}-${itemIndex}-0`}
-                  className="h-5 w-5 rounded-full border border-white overflow-hidden bg-gray-100 flex items-center justify-center flex-shrink-0"
-                  title={group.tabs[0].title || group.tabs[0].url || ""}
-                >
-                  {group.tabs[0].faviconUrl ? (
-                    <img
-                      src={group.tabs[0].faviconUrl}
-                      className="h-4 w-4"
-                      alt=""
-                      onError={(e) => {
-                        e.currentTarget.src = "";
-                        e.currentTarget.style.display = "none";
-                      }}
-                    />
-                  ) : (
-                    <div className="h-4 w-4 bg-gray-200 rounded-sm"></div>
-                  )}
-                </div>
-              )}
-            </div>
-          );
-        } else {
-          const tab = item.data as TabData;
-          return (
-            <div
-              key={`tab-${tab.id || tab.index}-${itemIndex}`}
-              className="h-5 w-5 rounded-full border border-white overflow-hidden bg-gray-100 flex items-center justify-center flex-shrink-0"
-              title={tab.title || tab.url || ""}
-            >
-              {tab.faviconUrl ? (
-                <img
-                  src={tab.faviconUrl}
-                  className="h-4 w-4"
-                  alt=""
-                  onError={(e) => {
-                    e.currentTarget.src = "";
-                    e.currentTarget.style.display = "none";
-                  }}
-                />
-              ) : (
-                <div className="h-4 w-4 bg-gray-200 rounded-sm"></div>
-              )}
             </div>
           );
         }
+        const tab = item.data as TabData;
+        return (
+          <div
+            key={`tab-${tab.id || tab.index}-${itemIndex}`}
+            className="h-5 w-5 rounded-full border border-white overflow-hidden bg-gray-100 flex items-center justify-center flex-shrink-0"
+            title={tab.title || tab.url || ""}
+          >
+            {tab.faviconUrl ? (
+              <img
+                src={tab.faviconUrl}
+                className="h-4 w-4"
+                alt=""
+                onError={(e) => {
+                  e.currentTarget.src = "";
+                  e.currentTarget.style.display = "none";
+                }}
+              />
+            ) : (
+              <div className="h-4 w-4 bg-gray-200 rounded-sm"></div>
+            )}
+          </div>
+        );
       })}
 
       {remainingCount > 0 && (
