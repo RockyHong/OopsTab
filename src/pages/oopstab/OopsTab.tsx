@@ -38,8 +38,6 @@ import {
   checkStorageLimits,
   toggleSnapshotStar,
   cleanupSnapshots,
-  exportSnapshots,
-  importSnapshots,
 } from "../../utils";
 import {
   WindowSnapshot,
@@ -404,7 +402,6 @@ const SnapshotsPanel: React.FC = () => {
     totalBytes: DEFAULT_STORAGE_STATS.totalBytes,
   });
   const scrollPositionRef = useRef<number>(0); // Ref to store scroll position
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Bulk action states
   const [isSelectMode, setIsSelectMode] = useState(false);
@@ -414,12 +411,6 @@ const SnapshotsPanel: React.FC = () => {
   const [showMergeConfirm, setShowMergeConfirm] = useState(false);
   // Add new state to track animation
   const [checkboxAnimation, setCheckboxAnimation] = useState(false);
-  // States for import/export
-  const [isExporting, setIsExporting] = useState(false);
-  const [isImporting, setIsImporting] = useState(false);
-  const [importError, setImportError] = useState("");
-  const [showExportSuccess, setShowExportSuccess] = useState(false);
-  const [exportedFilename, setExportedFilename] = useState("");
 
   // Lazy loading states
   const [visibleToday, setVisibleToday] = useState<number>(10); // Initial number of today's snapshots to show
@@ -996,193 +987,6 @@ const SnapshotsPanel: React.FC = () => {
     loadSnapshots();
   };
 
-  // Export Success Modal component
-  const ExportSuccessModal: React.FC<{
-    isOpen: boolean;
-    onClose: () => void;
-    filename: string;
-  }> = ({ isOpen, onClose, filename }) => {
-    return (
-      <Modal isOpen={isOpen} onClose={onClose} title="Export Successful">
-        <div className="space-y-4">
-          <div className="flex items-center space-x-3">
-            <CheckCircleIcon className="h-6 w-6 text-green-500 flex-shrink-0" />
-            <Typography variant="body" className="mb-0">
-              Your snapshots were successfully exported.
-            </Typography>
-          </div>
-
-          {filename && (
-            <div className="bg-gray-50 p-3 rounded-md border border-gray-200">
-              <Typography
-                variant="body-sm"
-                className="font-medium mb-1 text-text-secondary"
-              >
-                Exported to:
-              </Typography>
-              <Typography
-                variant="body-sm"
-                className="font-mono break-all text-text-primary mb-0"
-              >
-                {filename}
-              </Typography>
-            </div>
-          )}
-
-          <div className="flex justify-center pt-4 mt-2">
-            <Button variant="primary" onClick={onClose} className="px-6">
-              Got It
-            </Button>
-          </div>
-        </div>
-      </Modal>
-    );
-  };
-
-  // Handle export functionality
-  const handleExport = async () => {
-    try {
-      setIsExporting(true);
-      const jsonData = await exportSnapshots();
-
-      // Use the File System Access API if supported
-      if ("showSaveFilePicker" in window) {
-        try {
-          const filename = `oopstab-snapshots-${
-            new Date().toISOString().split("T")[0]
-          }.json`;
-
-          // @ts-ignore - TypeScript might not have types for this API yet
-          const fileHandle = await window.showSaveFilePicker({
-            suggestedName: filename,
-            types: [
-              {
-                description: "JSON Files",
-                accept: {
-                  "application/json": [".json"],
-                },
-              },
-            ],
-          });
-
-          // Create a writable stream and write the file
-          // @ts-ignore - TypeScript might not have types for this API yet
-          const writable = await fileHandle.createWritable();
-          await writable.write(jsonData);
-          await writable.close();
-
-          console.log("File saved successfully using File System Access API");
-
-          // Show success modal with the actual filename (might be different from suggested)
-          // @ts-ignore - TypeScript might not have types for this API yet
-          const savedFilename = fileHandle.name || filename;
-          setExportedFilename(savedFilename);
-          setShowExportSuccess(true);
-        } catch (err) {
-          // User might have cancelled the save dialog
-          console.warn("File System Access API operation failed:", err);
-
-          // Check if this was a user cancellation or a real error
-          // The error for cancellation is typically DOMException with name "AbortError"
-          if (err instanceof DOMException && err.name === "AbortError") {
-            console.log("User cancelled the save dialog");
-            // Don't fall back to download in this case
-          } else {
-            // For other errors, fall back to the traditional download
-            console.warn("Falling back to download due to error:", err);
-            const savedFilename = downloadFile(jsonData);
-            setExportedFilename(savedFilename);
-            setShowExportSuccess(true);
-          }
-        }
-      } else {
-        // Fall back for browsers without File System Access API
-        const savedFilename = downloadFile(jsonData);
-        setExportedFilename(savedFilename);
-        setShowExportSuccess(true);
-      }
-    } catch (err) {
-      console.error("Error exporting snapshots:", err);
-    } finally {
-      setIsExporting(false);
-    }
-  };
-
-  // Helper function for traditional file download
-  const downloadFile = (jsonData: string): string => {
-    const filename = `oopstab-snapshots-${
-      new Date().toISOString().split("T")[0]
-    }.json`;
-    const blob = new Blob([jsonData], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    a.click();
-
-    URL.revokeObjectURL(url);
-    return filename;
-  };
-
-  // Handle import functionality
-  const handleImport = () => {
-    // Clear any previous error
-    setImportError("");
-
-    // Trigger file input click
-    if (fileInputRef.current) {
-      fileInputRef.current.click();
-    }
-  };
-
-  // Process the imported file
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setIsImporting(true);
-    setImportError("");
-
-    try {
-      const reader = new FileReader();
-
-      reader.onload = async (event) => {
-        try {
-          const jsonData = event.target?.result as string;
-          if (!jsonData) {
-            throw new Error("Failed to read file");
-          }
-
-          await importSnapshots(jsonData);
-
-          // Reload snapshots to show the imported data
-          await loadSnapshots();
-        } catch (err) {
-          console.error("Error importing snapshots:", err);
-          setImportError(err instanceof Error ? err.message : String(err));
-        } finally {
-          setIsImporting(false);
-          // Reset file input
-          if (fileInputRef.current) {
-            fileInputRef.current.value = "";
-          }
-        }
-      };
-
-      reader.onerror = () => {
-        setImportError("Failed to read file");
-        setIsImporting(false);
-      };
-
-      reader.readAsText(file);
-    } catch (err) {
-      console.error("Error reading file:", err);
-      setImportError("Failed to read file");
-      setIsImporting(false);
-    }
-  };
-
   // Render a snapshot list item
   const renderSnapshotItem = (
     oopsWindowId: string,
@@ -1398,24 +1202,6 @@ const SnapshotsPanel: React.FC = () => {
                 Select
               </Button>
 
-              <Button
-                variant="passive"
-                onClick={handleExport}
-                disabled={isExporting || Object.keys(snapshots).length === 0}
-                title="Export snapshots to a file"
-              >
-                {isExporting ? "Exporting..." : "Export"}
-              </Button>
-
-              <Button
-                variant="passive"
-                onClick={handleImport}
-                disabled={isImporting}
-                title="Import snapshots from a file"
-              >
-                {isImporting ? "Importing..." : "Import"}
-              </Button>
-
               <IconButton
                 variant="primary"
                 onClick={loadSnapshots}
@@ -1426,26 +1212,10 @@ const SnapshotsPanel: React.FC = () => {
                   className={`h-5 w-5 ${isLoading ? "animate-spin" : ""}`}
                 />
               </IconButton>
-
-              {/* Hidden file input for import */}
-              <input
-                type="file"
-                accept=".json"
-                onChange={handleFileChange}
-                ref={fileInputRef}
-                style={{ display: "none" }}
-              />
             </>
           )}
         </div>
       </div>
-
-      {/* Error message for import */}
-      {importError && (
-        <div className="mb-4 p-2 bg-red-100 text-red-800 rounded-md text-sm">
-          Error importing snapshots: {importError}
-        </div>
-      )}
 
       {/* Snapshots */}
       <div className="space-y-4">
@@ -1816,13 +1586,6 @@ const SnapshotsPanel: React.FC = () => {
         onConfirmNew={() => mergeSnapshots(true)}
         onConfirmReplace={() => mergeSnapshots(false)}
         selectedCount={selectedSnapshots.size}
-      />
-
-      {/* Export Success Modal */}
-      <ExportSuccessModal
-        isOpen={showExportSuccess}
-        onClose={() => setShowExportSuccess(false)}
-        filename={exportedFilename}
       />
     </div>
   );
