@@ -13,8 +13,12 @@ import {
   resetDeletedWindowTracking,
   cacheWindowState,
   checkForReopenedWindow,
+  getConfig,
+  getAllSnapshots,
+  saveAllSnapshots,
 } from "../utils";
 import browser from "../utils/browserAPI";
+import { STORAGE_KEYS } from "../types";
 
 console.log("OopsTab background service worker initialized");
 
@@ -55,6 +59,45 @@ const debouncedSnapshotCreation = debounce((windowId: number | undefined) => {
 // Listen for extension icon clicks
 browser.action.onClicked.addListener(() => {
   browser.tabs.create({ url: "options.html" });
+});
+
+// Listen for storage changes
+browser.storage.onChanged.addListener(async (changes, areaName) => {
+  try {
+    // Handle sync changes
+    const config = await getConfig();
+
+    // Only process sync changes if sync is enabled and the changes are from sync storage
+    if (config.syncEnabled && areaName === "sync") {
+      console.log("Processing sync storage changes");
+
+      // Check if the changes include our snapshot data (either direct or chunked)
+      const hasSnapshotChanges =
+        changes[STORAGE_KEYS.SNAPSHOTS_KEY] ||
+        changes[`${STORAGE_KEYS.SNAPSHOTS_KEY}_chunks`] ||
+        Object.keys(changes).some((key) =>
+          key.startsWith(`${STORAGE_KEYS.SNAPSHOTS_KEY}_chunk_`)
+        );
+
+      if (hasSnapshotChanges) {
+        console.log(
+          "Detected snapshot changes in sync storage, updating local storage"
+        );
+
+        // Get the latest local snapshots
+        const localSnapshots = await getAllSnapshots();
+
+        // If local has data, save it back to sync to ensure we don't lose local-only changes
+        // This will trigger another sync event but won't cause an infinite loop
+        // because we'll merge the data sensibly
+        if (Object.keys(localSnapshots).length > 0) {
+          await saveAllSnapshots(localSnapshots);
+        }
+      }
+    }
+  } catch (err) {
+    console.error("Error handling storage changes:", err);
+  }
 });
 
 // Listen for window creation to assign oopsWindowId

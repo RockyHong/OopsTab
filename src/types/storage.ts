@@ -28,10 +28,12 @@ export const DEFAULT_STORAGE_STATS: StorageStats = {
 // Application configuration
 export interface OopsConfig {
   autosaveDebounce: number; // milliseconds
+  syncEnabled: boolean; // whether to sync snapshots with browser sync storage
 }
 
 export const DEFAULT_CONFIG: OopsConfig = {
   autosaveDebounce: 5000, // 5 seconds
+  syncEnabled: false, // disabled by default
 };
 
 // Storage keys

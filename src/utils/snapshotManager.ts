@@ -36,6 +36,9 @@ const deletedWindowSnapshots = new Set<string>();
 // Map of windowId to cached snapshot data
 const windowStateCache = new Map<number, WindowStateCache>();
 
+// Max size for sync storage chunks (80KB to stay safely under Chrome's 100KB limit)
+const MAX_SYNC_CHUNK_SIZE = 80 * 1024;
+
 /**
  * Get the current configuration
  * @returns Promise resolving to the current configuration
@@ -53,6 +56,7 @@ export const getConfig = async (): Promise<OopsConfig> => {
     return {
       autosaveDebounce:
         config.autosaveDebounce ?? DEFAULT_CONFIG.autosaveDebounce,
+      syncEnabled: config.syncEnabled ?? DEFAULT_CONFIG.syncEnabled,
     };
   } catch (err) {
     console.error("Error getting config:", err);
@@ -79,8 +83,40 @@ export const saveConfig = async (config: OopsConfig): Promise<void> => {
  * @returns Promise resolving to snapshot map
  */
 export const getAllSnapshots = async (): Promise<SnapshotMap> => {
-  const result = await browser.storage.local.get([SNAPSHOTS_KEY]);
-  return (result[SNAPSHOTS_KEY] as SnapshotMap) || {};
+  try {
+    // First get from local storage
+    const result = await browser.storage.local.get([SNAPSHOTS_KEY]);
+    let snapshots = (result[SNAPSHOTS_KEY] as SnapshotMap) || {};
+
+    // Try to merge with sync data if available
+    const config = await getConfig();
+    if (config.syncEnabled) {
+      try {
+        const syncedSnapshots = await getAllSnapshotsFromSync();
+        if (syncedSnapshots && Object.keys(syncedSnapshots).length > 0) {
+          // Merge snapshots, preferring the more recent version
+          for (const [id, snapshot] of Object.entries(syncedSnapshots)) {
+            if (
+              !snapshots[id] ||
+              snapshots[id].timestamp < snapshot.timestamp
+            ) {
+              snapshots[id] = snapshot;
+            }
+          }
+
+          // If we got sync data but local is empty or outdated, save the merged result locally
+          await browser.storage.local.set({ [SNAPSHOTS_KEY]: snapshots });
+        }
+      } catch (err) {
+        console.error("Error getting snapshots from sync:", err);
+      }
+    }
+
+    return snapshots;
+  } catch (err) {
+    console.error("Error getting snapshots:", err);
+    return {};
+  }
 };
 
 /**
@@ -90,11 +126,193 @@ export const getAllSnapshots = async (): Promise<SnapshotMap> => {
 export const saveAllSnapshots = async (
   snapshotMap: SnapshotMap
 ): Promise<void> => {
-  await browser.storage.local.set({ [SNAPSHOTS_KEY]: snapshotMap });
-  console.log("Snapshots saved:", snapshotMap);
+  try {
+    // Always save to local storage
+    await browser.storage.local.set({ [SNAPSHOTS_KEY]: snapshotMap });
+    console.log("Snapshots saved to local storage:", snapshotMap);
 
-  // Update storage statistics after saving
-  await updateStorageStats();
+    // Check if sync is enabled
+    const config = await getConfig();
+    if (config.syncEnabled) {
+      try {
+        await saveAllSnapshotsToSync(snapshotMap);
+        console.log("Snapshots also saved to sync storage");
+      } catch (err) {
+        console.error("Error saving snapshots to sync storage:", err);
+      }
+    }
+
+    // Update storage statistics after saving
+    await updateStorageStats();
+  } catch (err) {
+    console.error("Error saving snapshots:", err);
+  }
+};
+
+/**
+ * Save snapshots to browser sync storage
+ * Uses chunking to handle browser limits
+ * @param snapshotMap The snapshot map to save
+ */
+export const saveAllSnapshotsToSync = async (
+  snapshotMap: SnapshotMap
+): Promise<void> => {
+  try {
+    // Get keys to clear old chunks
+    const existingKeys = await browser.storage.sync.get(null);
+    const chunkKeysToRemove = Object.keys(existingKeys).filter((key) =>
+      key.startsWith(SNAPSHOTS_KEY + "_chunk_")
+    );
+
+    if (chunkKeysToRemove.length > 0) {
+      await browser.storage.sync.remove(chunkKeysToRemove);
+    }
+
+    // Convert to string
+    const snapshotsStr = JSON.stringify(snapshotMap);
+
+    // If data is too large, use chunking
+    if (snapshotsStr.length > MAX_SYNC_CHUNK_SIZE) {
+      const chunks: Record<string, string> = {};
+      let chunkCount = 0;
+
+      // Create chunks of appropriate size
+      for (let i = 0; i < snapshotsStr.length; i += MAX_SYNC_CHUNK_SIZE) {
+        const chunkKey = `${SNAPSHOTS_KEY}_chunk_${chunkCount}`;
+        chunks[chunkKey] = snapshotsStr.substring(i, i + MAX_SYNC_CHUNK_SIZE);
+        chunkCount++;
+      }
+
+      // Save chunk info
+      await browser.storage.sync.set({
+        [`${SNAPSHOTS_KEY}_chunks`]: chunkCount,
+      });
+
+      // Save each chunk
+      for (const [key, value] of Object.entries(chunks)) {
+        await browser.storage.sync.set({ [key]: value });
+      }
+
+      console.log(`Saved ${chunkCount} chunks to sync storage`);
+    } else {
+      // Small enough to save directly
+      await browser.storage.sync.set({
+        [SNAPSHOTS_KEY]: snapshotMap,
+        [`${SNAPSHOTS_KEY}_chunks`]: 0, // Indicate no chunking
+      });
+    }
+  } catch (err) {
+    console.error("Error saving to sync storage:", err);
+    throw err;
+  }
+};
+
+/**
+ * Get all snapshots from browser sync storage
+ * Handles chunked data if present
+ * @returns Promise resolving to snapshot map or null if not found
+ */
+export const getAllSnapshotsFromSync =
+  async (): Promise<SnapshotMap | null> => {
+    try {
+      // Check if data is chunked
+      const chunkInfo = await browser.storage.sync.get([
+        `${SNAPSHOTS_KEY}_chunks`,
+      ]);
+      const chunkCount = chunkInfo[`${SNAPSHOTS_KEY}_chunks`] as
+        | number
+        | undefined;
+
+      if (chunkCount === undefined) {
+        // No sync data available
+        return null;
+      }
+
+      if (chunkCount === 0) {
+        // Not chunked, get direct data
+        const result = await browser.storage.sync.get([SNAPSHOTS_KEY]);
+        return (result[SNAPSHOTS_KEY] as SnapshotMap) || null;
+      }
+
+      // Get all chunks
+      const chunkKeys = Array.from(
+        { length: chunkCount },
+        (_, i) => `${SNAPSHOTS_KEY}_chunk_${i}`
+      );
+
+      const chunks = await browser.storage.sync.get(chunkKeys);
+
+      // Combine chunks
+      let completeStr = "";
+      for (let i = 0; i < chunkCount; i++) {
+        const key = `${SNAPSHOTS_KEY}_chunk_${i}`;
+        if (chunks[key]) {
+          completeStr += chunks[key];
+        } else {
+          console.error(`Missing chunk ${i} in sync storage`);
+          return null;
+        }
+      }
+
+      // Parse combined data
+      return JSON.parse(completeStr) as SnapshotMap;
+    } catch (err) {
+      console.error("Error getting from sync storage:", err);
+      return null;
+    }
+  };
+
+/**
+ * Export snapshots to a JSON file
+ * @returns JSON string of all snapshots
+ */
+export const exportSnapshots = async (): Promise<string> => {
+  try {
+    const snapshots = await getAllSnapshots();
+    return JSON.stringify(snapshots, null, 2); // Pretty-printed JSON
+  } catch (err) {
+    console.error("Error exporting snapshots:", err);
+    throw new Error("Failed to export snapshots");
+  }
+};
+
+/**
+ * Import snapshots from a JSON string
+ * @param jsonData JSON string containing snapshots
+ * @returns Promise resolving to boolean indicating success
+ */
+export const importSnapshots = async (jsonData: string): Promise<boolean> => {
+  try {
+    const importedSnapshots = JSON.parse(jsonData) as SnapshotMap;
+
+    // Validate imported data
+    if (!importedSnapshots || typeof importedSnapshots !== "object") {
+      throw new Error("Invalid snapshot data format");
+    }
+
+    // Get existing snapshots to merge with
+    const existingSnapshots = await getAllSnapshots();
+
+    // Merge snapshots, preferring the more recent version
+    for (const [id, snapshot] of Object.entries(importedSnapshots)) {
+      if (
+        !existingSnapshots[id] ||
+        existingSnapshots[id].timestamp < snapshot.timestamp
+      ) {
+        existingSnapshots[id] = snapshot;
+      }
+    }
+
+    // Save merged snapshots
+    await saveAllSnapshots(existingSnapshots);
+    return true;
+  } catch (err) {
+    console.error("Error importing snapshots:", err);
+    throw new Error(
+      "Failed to import snapshots: " +
+        (err instanceof Error ? err.message : String(err))
+    );
+  }
 };
 
 /**

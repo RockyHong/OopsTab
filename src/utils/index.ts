@@ -21,7 +21,7 @@ export type {
 } from "../types";
 
 // Re-export constants
-export { DEFAULT_STORAGE_STATS, DEFAULT_CONFIG } from "../types";
+export { DEFAULT_STORAGE_STATS, DEFAULT_CONFIG, STORAGE_KEYS } from "../types";
 
 // Add debounce utility
 

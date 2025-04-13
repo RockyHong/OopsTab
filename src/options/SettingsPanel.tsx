@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Typography, Card, Button } from "../components/ui";
+import { Typography, Card, Button, Toggle } from "../components/ui";
 import {
   getConfig,
   saveConfig,
@@ -208,6 +208,31 @@ const SettingsPanel: React.FC = () => {
                 <p className="text-xs text-text-secondary">
                   Time to wait after tab changes before creating an
                   auto-snapshot (1-60 seconds)
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label
+                    htmlFor="syncEnabled"
+                    className="block text-sm font-medium text-text-primary"
+                  >
+                    Enable Sync
+                  </label>
+                  <Toggle
+                    checked={config.syncEnabled}
+                    onChange={(checked) =>
+                      setConfig((prev) => ({
+                        ...prev,
+                        syncEnabled: checked,
+                      }))
+                    }
+                  />
+                </div>
+                <p className="text-xs text-text-secondary">
+                  Synchronize snapshots across your devices using browser sync.
+                  This will help preserve your snapshots if you reinstall the
+                  extension.
                 </p>
               </div>
 
