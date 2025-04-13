@@ -165,7 +165,7 @@ const MergeConfirmationDialog: React.FC<{
             Create New
           </Button>
           <Button variant="passive" onClick={onConfirmReplace} className="px-6">
-            Replace First
+            Replace
           </Button>
           <Button variant="passive" onClick={onClose} className="px-6">
             Cancel
@@ -431,6 +431,14 @@ const SnapshotsPanel: React.FC = () => {
     isBulkDelete: false,
   });
 
+  // Add new state to track merge results
+  const [mergeResult, setMergeResult] = useState({
+    isOpen: false,
+    totalTabs: 0,
+    duplicatesSkipped: 0,
+    newSnapshotName: "",
+  });
+
   // Inject animation CSS
   useEffect(() => {
     // Create style element for checkbox animation
@@ -593,7 +601,6 @@ const SnapshotsPanel: React.FC = () => {
       if (areaName === "local") {
         // Look for changes to the oopsSnapshots key
         if (changes.oopsSnapshots) {
-
           loadSnapshots();
           checkOpenWindows();
         }
@@ -622,7 +629,6 @@ const SnapshotsPanel: React.FC = () => {
     try {
       const success = await restoreSession(oopsWindowId);
       if (success) {
-
       } else {
         console.error(`Failed to restore window ${oopsWindowId}`);
       }
@@ -685,7 +691,6 @@ const SnapshotsPanel: React.FC = () => {
       try {
         const success = await deleteSnapshot(windowId);
         if (success) {
-
           // Refresh the list
           loadSnapshots();
         } else {
@@ -707,6 +712,65 @@ const SnapshotsPanel: React.FC = () => {
       return;
     }
     setShowMergeConfirm(true);
+  };
+
+  // Close merge result modal
+  const closeMergeResult = () => {
+    setMergeResult((prev) => ({ ...prev, isOpen: false }));
+  };
+
+  // Merge Result Dialog component
+  const MergeResultDialog: React.FC<{
+    isOpen: boolean;
+    onClose: () => void;
+    totalTabs: number;
+    duplicatesSkipped: number;
+    newSnapshotName: string;
+  }> = ({ isOpen, onClose, totalTabs, duplicatesSkipped, newSnapshotName }) => {
+    return (
+      <Modal isOpen={isOpen} onClose={onClose} title="Merge Complete">
+        <div className="space-y-4">
+          <div className="p-3 bg-green-50 rounded-md border border-green-200 flex items-center">
+            <CheckCircleIcon className="h-5 w-5 text-green-500 mr-2" />
+            <Typography variant="body" className="text-green-700 mb-0">
+              Snapshots successfully merged
+            </Typography>
+          </div>
+
+          <div className="space-y-2">
+            <Typography variant="body" className="mb-0 font-medium">
+              New snapshot: {newSnapshotName}
+            </Typography>
+
+            <div className="flex items-center justify-between py-1 border-b border-gray-100">
+              <Typography variant="body" className="mb-0 text-gray-600">
+                Total tabs:
+              </Typography>
+              <Typography variant="body" className="mb-0 font-medium">
+                {totalTabs}
+              </Typography>
+            </div>
+
+            {duplicatesSkipped > 0 && (
+              <div className="flex items-center justify-between py-1 border-b border-gray-100">
+                <Typography variant="body" className="mb-0 text-gray-600">
+                  Duplicates skipped:
+                </Typography>
+                <Typography variant="body" className="mb-0 font-medium">
+                  {duplicatesSkipped}
+                </Typography>
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-center pt-2">
+            <Button variant="primary" onClick={onClose} className="px-6">
+              Done
+            </Button>
+          </div>
+        </div>
+      </Modal>
+    );
   };
 
   // Update merge snapshots logic to correctly handle the Replace option
@@ -741,14 +805,17 @@ const SnapshotsPanel: React.FC = () => {
       };
 
       // Set appropriate custom name based on mode
+      let snapshotName = "";
       if (createNew) {
-        newSnapshot.customName = "Merged Snapshot";
+        snapshotName = "Merged Snapshot";
+        newSnapshot.customName = snapshotName;
       } else {
         // When replacing, use the base snapshot's name
-        newSnapshot.customName =
+        snapshotName =
           baseSnapshot.customName ||
           baseSnapshot.tabs?.[0]?.title ||
           "Merged: Multiple Windows";
+        newSnapshot.customName = snapshotName;
       }
 
       // Ensure tabs array exists
@@ -760,15 +827,57 @@ const SnapshotsPanel: React.FC = () => {
       const allGroups: TabGroupData[] = [];
       const existingGroupIds = new Set<number>();
 
+      // Track unique URLs to avoid duplicates
+      const uniqueUrls = new Set<string>();
+      let totalTabCount = 0;
+      let duplicatesSkipped = 0;
+
+      // Helper function to extract actual URL from middleware-tab.html
+      const getActualUrl = (tab: TabData): string => {
+        if (!tab.url) return "";
+
+        // Check if this is a middleware tab
+        if (tab.url.includes("middleware-tab.html")) {
+          try {
+            // Extract the actual URL from query parameters
+            const url = new URL(tab.url);
+            const targetUrl = url.searchParams.get("url");
+            return targetUrl || tab.url;
+          } catch (e) {
+            return tab.url;
+          }
+        }
+
+        return tab.url;
+      };
+
       // Process all selected snapshots
       for (const snapshot of selectedSnapshotObjects) {
         if (snapshot.tabs && Array.isArray(snapshot.tabs)) {
-          // For tabs, we need to update their indices
+          // Count total tabs for stats
+          totalTabCount += snapshot.tabs.length;
+
+          // For tabs, we need to update their indices and filter duplicates
           const startIndex = allTabs.length;
           snapshot.tabs.forEach((tab, idx) => {
+            // Get the normalized URL for comparison
+            const normalizedUrl = getActualUrl(tab);
+
+            // Skip if this URL has already been added
+            if (normalizedUrl && uniqueUrls.has(normalizedUrl)) {
+              duplicatesSkipped++;
+              return; // Skip this tab
+            }
+
+            // Add to unique URLs set if it has a URL
+            if (normalizedUrl) {
+              uniqueUrls.add(normalizedUrl);
+            }
+
+            // Add tab with updated index
             allTabs.push({
               ...tab,
-              index: startIndex + idx,
+              index: startIndex + allTabs.length, // Use dynamic index based on current length
             });
           });
 
@@ -799,6 +908,11 @@ const SnapshotsPanel: React.FC = () => {
         }
       }
 
+      // Fix tab indices to be sequential
+      allTabs.forEach((tab, idx) => {
+        tab.index = idx;
+      });
+
       // Save the merged snapshot
       newSnapshot.tabs = allTabs;
       newSnapshot.groups = allGroups;
@@ -819,6 +933,14 @@ const SnapshotsPanel: React.FC = () => {
       }
 
       await browser.storage.local.set({ oopsSnapshots: storedSnapshots });
+
+      // Show merge results
+      setMergeResult({
+        isOpen: true,
+        totalTabs: allTabs.length,
+        duplicatesSkipped: duplicatesSkipped,
+        newSnapshotName: snapshotName,
+      });
 
       loadSnapshots();
     } catch (err) {
@@ -1585,6 +1707,15 @@ const SnapshotsPanel: React.FC = () => {
         onConfirmNew={() => mergeSnapshots(true)}
         onConfirmReplace={() => mergeSnapshots(false)}
         selectedCount={selectedSnapshots.size}
+      />
+
+      {/* Merge Result Dialog */}
+      <MergeResultDialog
+        isOpen={mergeResult.isOpen}
+        onClose={closeMergeResult}
+        totalTabs={mergeResult.totalTabs}
+        duplicatesSkipped={mergeResult.duplicatesSkipped}
+        newSnapshotName={mergeResult.newSnapshotName}
       />
     </div>
   );

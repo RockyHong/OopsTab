@@ -325,9 +325,9 @@ const SettingsPanel: React.FC = () => {
       // Use the File System Access API if supported
       if ("showSaveFilePicker" in window) {
         try {
-          const filename = `oopstab-snapshots-${
-            new Date().toISOString().split("T")[0]
-          }.json`;
+          const filename = `oopstab-snapshots-${new Date()
+            .toISOString()
+            .replace(/[:.]/g, "-")}.json`;
 
           // @ts-ignore - TypeScript might not have types for this API yet
           const fileHandle = await window.showSaveFilePicker({
@@ -377,9 +377,9 @@ const SettingsPanel: React.FC = () => {
 
   // Helper function for traditional file download
   const downloadFile = (jsonData: string): string => {
-    const filename = `oopstab-snapshots-${
-      new Date().toISOString().split("T")[0]
-    }.json`;
+    const filename = `oopstab-snapshots-${new Date()
+      .toISOString()
+      .replace(/[:.]/g, "-")}.json`;
     const blob = new Blob([jsonData], { type: "application/json" });
     const url = URL.createObjectURL(blob);
 

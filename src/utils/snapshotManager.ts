@@ -72,7 +72,6 @@ export const getConfig = async (): Promise<OopsConfig> => {
 export const saveConfig = async (config: OopsConfig): Promise<void> => {
   try {
     await browser.storage.local.set({ [CONFIG_KEY]: config });
-
   } catch (err) {
     console.error("Error saving config:", err);
   }
@@ -135,7 +134,6 @@ export const saveAllSnapshots = async (
     if (config.syncEnabled) {
       try {
         await saveAllSnapshotsToSync(snapshotMap);
-
       } catch (err) {
         console.error("Error saving snapshots to sync storage:", err);
       }
@@ -191,7 +189,6 @@ export const saveAllSnapshotsToSync = async (
       for (const [key, value] of Object.entries(chunks)) {
         await browser.storage.sync.set({ [key]: value });
       }
-
     } else {
       // Small enough to save directly
       await browser.storage.sync.set({
@@ -293,17 +290,46 @@ export const importSnapshots = async (
     // Get existing snapshots to merge with
     const existingSnapshots = await getAllSnapshots();
 
-    // Count imported snapshots
-    const importCount = Object.keys(importedSnapshots).length;
+    // Track imported count and new count
+    let importCount = 0;
+    let newInstanceCount = 0;
 
-    // Merge snapshots, preferring the more recent version
-    for (const [id, snapshot] of Object.entries(importedSnapshots)) {
-      if (
-        !existingSnapshots[id] ||
-        existingSnapshots[id].timestamp < snapshot.timestamp
-      ) {
-        existingSnapshots[id] = snapshot;
+    // Check each imported snapshot
+    for (const [id, importedSnapshot] of Object.entries(importedSnapshots)) {
+      // Check if this ID already exists
+      if (existingSnapshots[id]) {
+        const existingSnapshot = existingSnapshots[id];
+
+        // Check if snapshots are identical based on tab count, URLs, and order
+        const isIdentical = areSnapshotsIdentical(
+          existingSnapshot,
+          importedSnapshot
+        );
+
+        if (isIdentical) {
+          // If identical, skip this snapshot
+          continue;
+        } else {
+          // Not identical - create a new instance with a prefix in the title
+          const newId = `imported-${Date.now()}-${id}`;
+          const newName = `Imported - ${
+            importedSnapshot.customName || "Unnamed Window"
+          }`;
+
+          // Create a new snapshot with the new ID and name
+          existingSnapshots[newId] = {
+            ...importedSnapshot,
+            customName: newName,
+          };
+
+          newInstanceCount++;
+        }
+      } else {
+        // ID doesn't exist, add the snapshot as-is
+        existingSnapshots[id] = importedSnapshot;
       }
+
+      importCount++;
     }
 
     // Save merged snapshots
@@ -316,6 +342,87 @@ export const importSnapshots = async (
         (err instanceof Error ? err.message : String(err))
     );
   }
+};
+
+/**
+ * Compare two snapshots to check if they are identical
+ * Checks tab count, tab URLs (with special handling for middleware tabs), and order
+ * @param snapshot1 First snapshot to compare
+ * @param snapshot2 Second snapshot to compare
+ * @returns True if snapshots are identical, false otherwise
+ */
+const areSnapshotsIdentical = (
+  snapshot1: WindowSnapshot,
+  snapshot2: WindowSnapshot
+): boolean => {
+  // Check tab count
+  if (snapshot1.tabs.length !== snapshot2.tabs.length) {
+    return false;
+  }
+
+  // Check each tab URL and order
+  for (let i = 0; i < snapshot1.tabs.length; i++) {
+    const tab1 = snapshot1.tabs[i];
+    const tab2 = snapshot2.tabs[i];
+
+    // Different index means different order
+    if (tab1.index !== tab2.index) {
+      return false;
+    }
+
+    // Check URLs (handle middleware tabs specially)
+    const url1 = getNormalizedUrl(tab1.url);
+    const url2 = getNormalizedUrl(tab2.url);
+
+    if (url1 !== url2) {
+      return false;
+    }
+  }
+
+  // All checks passed, snapshots are identical
+  return true;
+};
+
+/**
+ * Get normalized URL, handling middleware tabs
+ * @param url The URL to normalize
+ * @returns The normalized URL (original URL from middleware tab if applicable)
+ */
+const getNormalizedUrl = (url: string): string => {
+  // Check if this is a middleware tab
+  const extensionUrl = browser.runtime.getURL("middleware-tab.html");
+
+  if (url.startsWith(extensionUrl)) {
+    try {
+      // Extract the original URL from the middleware tab
+      const urlObj = new URL(url);
+      const params = new URLSearchParams(urlObj.search);
+
+      // First try tabdata parameter
+      const tabDataParam = params.get("tabdata");
+      if (tabDataParam) {
+        try {
+          const tabData = JSON.parse(tabDataParam);
+          if (tabData.url) {
+            return tabData.url;
+          }
+        } catch (e) {
+          console.warn("Failed to parse tabdata JSON", e);
+        }
+      }
+
+      // Then fall back to url parameter
+      const targetUrl = params.get("url");
+      if (targetUrl) {
+        return targetUrl;
+      }
+    } catch (e) {
+      console.warn("Error extracting URL from middleware tab", e);
+    }
+  }
+
+  // Return the original URL if not a middleware tab or extraction failed
+  return url;
 };
 
 /**
@@ -449,7 +556,6 @@ export const cacheWindowState = async (windowId: number): Promise<void> => {
     setTimeout(() => {
       if (windowStateCache.has(windowId)) {
         windowStateCache.delete(windowId);
-
       }
     }, 30000);
   } catch (err) {
@@ -478,7 +584,6 @@ export const createWindowSnapshot = async (
 
     // Don't create snapshots for empty windows
     if (tabs.length === 0) {
-
       return false;
     }
 
@@ -512,7 +617,6 @@ export const createWindowSnapshot = async (
 
     // Prevent snapshotting single-tab windows unless they have groups
     if (tabs.length === 1 && groups.length === 0) {
-
       return false; // Do not proceed to create/save the snapshot
     }
 
@@ -572,7 +676,6 @@ export const createWindowSnapshot = async (
       const idMap = await getWindowIdMap();
       idMap[windowId] = mergedInto;
       await saveWindowIdMap(idMap);
-
     }
 
     // Save back to storage
@@ -837,7 +940,6 @@ export const createFinalWindowSnapshot = async (
     // Check if this window was previously deleted in the UI
     const wasDeleted = deletedWindowSnapshots.has(oopsWindowId);
     if (wasDeleted) {
-
       // Remove from our tracking set since we're handling it now
       deletedWindowSnapshots.delete(oopsWindowId);
     }
@@ -853,11 +955,9 @@ export const createFinalWindowSnapshot = async (
 
       // If we got no tabs but have cached data, use the cache
       if ((!tabs || tabs.length === 0) && cachedData) {
-
         usedCache = true;
       }
     } catch (e) {
-
       if (cachedData) {
         usedCache = true;
       } else {
@@ -877,11 +977,9 @@ export const createFinalWindowSnapshot = async (
 
       // Now that we've used the cache, remove it
       windowStateCache.delete(windowId);
-
     } else {
       // Don't create snapshots for empty windows if we don't have cached data
       if (!tabs || tabs.length === 0) {
-
         return false;
       }
 
@@ -985,7 +1083,6 @@ export const createFinalWindowSnapshot = async (
 export const resetDeletedWindowTracking = (): void => {
   // Clear the set of tracked deleted windows
   deletedWindowSnapshots.clear();
-
 };
 
 /**
@@ -1331,7 +1428,6 @@ export const deduplicateSnapshots = async (
 
             // Track the mapping
             idMappings[id2] = id1;
-
           } else {
             // Keep snapshot2, merge snapshot1 into it
             snapshots[id2] = {
@@ -1373,7 +1469,6 @@ export const deduplicateSnapshots = async (
             // Update the mapping to point to the snapshot it was merged into
             idMap[parseInt(windowIdStr, 10)] = mergedInto;
             updatedMap = true;
-
           }
         }
 
