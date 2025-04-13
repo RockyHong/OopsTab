@@ -130,6 +130,21 @@
   .snapshot-section-header {
     @apply font-semibold flex items-center text-primary-dark mb-4 py-sm;
   }
+  
+  /* Common styling for cards in settings and snapshots */
+  .settings-card, .snapshot-card {
+    @apply p-4 border rounded-lg shadow-sm;
+  }
+  
+  /* Common spacing between sections */
+  .section-spacing {
+    @apply space-y-6;
+  }
+  
+  /* Common header styling */
+  .section-title {
+    @apply text-primary-dark font-semibold mb-3;
+  }
 }
 
 @layer utilities {
