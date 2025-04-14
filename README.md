@@ -2,11 +2,11 @@
 
 A tiny browser extension that automatically snapshots windows and tabs—preserving entire workflow states. Captures those perfect setups: coding sessions with Stack Overflow army, research rabbit holes, your awesome business dashboards, that collection of manga chapters, or those eye candy tabs saved for design inspiration. All that structure stays intact for whenever it's needed again.
 
-![OopsTab Screenshot](./readmeimages/oopstab-screenshot.jpg)
+<img src="./ReadmeImages/oopstab-screenshot.jpg" width="500">
 
 ## Why OopsTab?
 
-![OopsTab Gif](./readmeimages/meme.gif)
+<img src="./ReadmeImages/meme.gif">
 
 Browsers are powerful with their solid recovery features, but those rescue sessions often dissolve into scattered page history if we don't catch them in time. We've all been there—our carefully arranged tabs just vanish like they never existed.
 
