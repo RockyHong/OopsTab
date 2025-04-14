@@ -14,7 +14,7 @@ It's that sneaky problem that trips us up when we least expect it, like that tab
 
 ### From GitHub Release
 
-1. Go to the [Releases](https://github.com/your-username/oopstab/releases) page
+1. Go to the [Releases](https://github.com/rockyhong/oopstab/releases) page
 2. Download the latest version (usually a .zip file)
 3. Unzip the downloaded file
 4. In Chrome, navigate to `chrome://extensions/`
