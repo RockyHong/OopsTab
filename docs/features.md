@@ -52,7 +52,7 @@ The interface is simple and inviting — a clean split between auto-captured ses
 
 <div class="cta-section">
   <a href="https://github.com/rockyhong/oopstab/releases" class="cta-button">Download OopsTab</a>
-  <a href="{{ '/development/' | relative_url }}" class="secondary-button">Development Guide</a>
+  <a href="{{ site.baseurl }}/development/" class="secondary-button">Development Guide</a>
 </div>
 
 ## FAQ

@@ -1,3 +1,36 @@
+---
+---
+
+// Import base styles
+@import "main";
+
+// Add specific styling for images
+img.screenshot {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 2rem auto;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+}
+
+img.meme-gif {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 2rem auto;
+  border-radius: 8px;
+}
+
+// Style the CTA section
+.cta-section {
+  text-align: center;
+  margin: 2rem 0;
+  padding: 1.5rem;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+}
+
 // Variables based on StyleDesignOverview.md and tailwind.config.js
 $primary-color: #328E6E;  // Primary green
 $primary-light: #40B08A;

@@ -9,12 +9,12 @@
   <meta name="robots" content="index, follow">
   
   <!-- Favicon -->
-  <link rel="apple-touch-icon" sizes="180x180" href="{{ '/assets/images/apple-touch-icon.png' | relative_url }}">
-  <link rel="icon" type="image/png" sizes="32x32" href="{{ '/assets/images/favicon-32x32.png' | relative_url }}">
-  <link rel="icon" type="image/png" sizes="16x16" href="{{ '/assets/images/favicon-16x16.png' | relative_url }}">
+  <link rel="apple-touch-icon" sizes="180x180" href="{{ site.baseurl }}/assets/images/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="{{ site.baseurl }}/assets/images/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="{{ site.baseurl }}/assets/images/favicon-16x16.png">
   
   <!-- Stylesheets -->
-  <link rel="stylesheet" href="{{ '/assets/css/main.css' | relative_url }}">
+  <link rel="stylesheet" href="{{ site.baseurl }}/assets/css/main.css">
   <link rel="canonical" href="{% if page.canonical_url %}{{ page.canonical_url }}{% else %}{{ site.url }}{{ site.baseurl }}{{ page.url }}{% endif %}">
   
   <!-- Open Graph / Facebook -->
@@ -60,11 +60,11 @@
 <body>
   <header class="site-header">
     <div class="container">
-      <a class="site-title" href="{{ '/' | relative_url }}">{{ site.title }}</a>
+      <a class="site-title" href="{{ site.baseurl }}/">{{ site.title }}</a>
       <nav class="site-nav">
-        <a href="{{ '/' | relative_url }}" class="nav-link" {% if page.url == '/' %}aria-current="page"{% endif %}>Home</a>
-        <a href="{{ '/features/' | relative_url }}" class="nav-link" {% if page.url == '/features/' %}aria-current="page"{% endif %}>Features</a>
-        <a href="{{ '/development/' | relative_url }}" class="nav-link" {% if page.url == '/development/' %}aria-current="page"{% endif %}>Development</a>
+        <a href="{{ site.baseurl }}/" class="nav-link" {% if page.url == '/' %}aria-current="page"{% endif %}>Home</a>
+        <a href="{{ site.baseurl }}/features/" class="nav-link" {% if page.url == '/features/' %}aria-current="page"{% endif %}>Features</a>
+        <a href="{{ site.baseurl }}/development/" class="nav-link" {% if page.url == '/development/' %}aria-current="page"{% endif %}>Development</a>
         <a href="https://github.com/RockyHong/OopsTab" class="nav-link" rel="noopener" target="_blank">GitHub</a>
       </nav>
     </div>
@@ -79,9 +79,9 @@
   <footer class="site-footer">
     <div class="container">
       <div class="footer-links">
-        <a href="{{ '/' | relative_url }}">Home</a> | 
-        <a href="{{ '/features/' | relative_url }}">Features</a> | 
-        <a href="{{ '/development/' | relative_url }}">Development</a> | 
+        <a href="{{ site.baseurl }}/">Home</a> | 
+        <a href="{{ site.baseurl }}/features/">Features</a> | 
+        <a href="{{ site.baseurl }}/development/">Development</a> | 
         <a href="https://github.com/RockyHong/OopsTab" rel="noopener" target="_blank">GitHub</a>
       </div>
       <p>&copy; {{ site.time | date: '%Y' }} Rocky Hong. All rights reserved.</p>

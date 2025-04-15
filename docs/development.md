@@ -93,5 +93,5 @@ Contributions are welcome! If you'd like to contribute:
 
 <div class="cta-section">
   <a href="https://github.com/rockyhong/OopsTab" class="cta-button">View on GitHub</a>
-  <a href="{{ '/features/' | relative_url }}" class="secondary-button">Explore Features</a>
+  <a href="{{ site.baseurl }}/features/" class="secondary-button">Explore Features</a>
 </div>

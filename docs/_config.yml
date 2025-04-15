@@ -1,7 +1,7 @@
 title: OopsTab
 tagline: Never Lose Your Tabs Again
 description: OopsTab automatically snapshots browser windows and tabs, preserving your workflows and allowing you to restore entire browsing sessions with a single click.
-baseurl: "/OopsTab"
+baseurl: "/OopsTab" # Set to "/OopsTab" for GitHub Pages
 url: "https://rockyhong.github.io"
 github_username: rockyhong
 author: Rocky Hong
@@ -29,6 +29,11 @@ plugins:
   - jekyll-feed
   - jekyll-seo-tag
   - jekyll-sitemap
+
+# SASS/SCSS settings
+sass:
+  sass_dir: _sass
+  style: compressed
 
 # RSS Feed
 feed:
@@ -63,7 +68,9 @@ exclude:
   - builds
   - .gitignore
   - .gitattributes
-  - ../*
+  - Gemfile
+  - Gemfile.lock
+  - _config.yml.bak
 
 # Cache settings
 keep_files:
