@@ -9,9 +9,9 @@
   <meta name="robots" content="index, follow">
   
   <!-- Favicon -->
-  <link rel="apple-touch-icon" sizes="180x180" href="{{ site.baseurl }}/assets/images/apple-touch-icon.png">
-  <link rel="icon" type="image/png" sizes="32x32" href="{{ site.baseurl }}/assets/images/favicon-32x32.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="{{ site.baseurl }}/assets/images/favicon-16x16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="https://i.imgur.com/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="https://i.imgur.com/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="https://i.imgur.com/favicon-16x16.png">
   
   <!-- Stylesheets -->
   <link rel="stylesheet" href="{{ site.baseurl }}/assets/css/main.css">
@@ -22,14 +22,14 @@
   <meta property="og:url" content="{{ site.url }}{{ site.baseurl }}{{ page.url }}">
   <meta property="og:title" content="{% if page.title %}{{ page.title }}{% else %}{{ site.title }}{% endif %}">
   <meta property="og:description" content="{% if page.description %}{{ page.description }}{% else %}{{ site.description }}{% endif %}">
-  <meta property="og:image" content="{{ site.url }}{{ site.baseurl }}{% if page.image %}{{ page.image }}{% else %}/assets/images/oopstab-screenshot.jpg{% endif %}">
+  <meta property="og:image" content="{% if page.image %}{{ page.image }}{% else %}https://i.imgur.com/2uqDQSc.jpg{% endif %}">
 
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:url" content="{{ site.url }}{{ site.baseurl }}{{ page.url }}">
   <meta name="twitter:title" content="{% if page.title %}{{ page.title }}{% else %}{{ site.title }}{% endif %}">
   <meta name="twitter:description" content="{% if page.description %}{{ page.description }}{% else %}{{ site.description }}{% endif %}">
-  <meta name="twitter:image" content="{{ site.url }}{{ site.baseurl }}{% if page.image %}{{ page.image }}{% else %}/assets/images/oopstab-screenshot.jpg{% endif %}">
+  <meta property="twitter:image" content="{% if page.image %}{{ page.image }}{% else %}https://i.imgur.com/2uqDQSc.jpg{% endif %}">
 
   <!-- Keywords -->
   {% if page.keywords %}<meta name="keywords" content="{{ page.keywords }}">{% endif %}

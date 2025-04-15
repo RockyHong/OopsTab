@@ -26,13 +26,21 @@ To run this site locally:
    bundle install
    ```
 
-5. Run the local server:
+5. Run the local server using the provided script:
 
    ```bash
-   bundle exec jekyll serve
+   # From the root directory
+   ./docs/test-site.sh
    ```
 
-6. View the site at [http://localhost:4000/OopsTab/](http://localhost:4000/OopsTab/)
+   This script will:
+
+   - Create a backup of your \_config.yml
+   - Temporarily set `baseurl` to empty for local testing
+   - Start the Jekyll server
+   - Restore the original config when you press Ctrl+C
+
+6. View the site at [http://localhost:4000/](http://localhost:4000/)
 
 ## Structure
 
@@ -45,6 +53,7 @@ To run this site locally:
   - `home.html` - Home page layout
   - `page.html` - Regular page layout
 - `assets/css/main.scss` - Main stylesheet
+- `_sass/` - SASS partials
 
 ## Editing Content
 
@@ -55,6 +64,23 @@ To run this site locally:
 ## Deployment
 
 This site is automatically deployed to GitHub Pages when changes are pushed to the main branch, using the GitHub Actions workflow defined in `.github/workflows/jekyll-gh-pages.yml`.
+
+The workflow:
+
+1. Builds the Jekyll site from the `docs` directory
+2. Deploys the built site to GitHub Pages
+3. Makes it available at https://rockyhong.github.io/OopsTab/
+
+No manual deployment steps are required - just push to the main branch!
+
+## SEO Optimization
+
+The site includes:
+
+- Proper meta tags for search engines and social media
+- Structured data for rich snippets
+- Sitemap.xml for search engine indexing
+- Robots.txt file for crawler guidance
 
 ## License
 

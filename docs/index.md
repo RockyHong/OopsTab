@@ -3,7 +3,7 @@ layout: home
 title: OopsTab - Never Lose Your Tabs Again
 description: OopsTab automatically snapshots browser windows and tabs, preserving your workflows and allowing you to restore entire browsing sessions with a single click.
 permalink: /
-image: /assets/images/oopstab-screenshot.jpg
+image: https://i.imgur.com/2uqDQSc.jpg
 canonical_url: https://rockyhong.github.io/OopsTab/
 keywords: browser extension, tab management, window snapshot, session recovery, Chrome extension, browser workflow, productivity tools
 ---
@@ -14,11 +14,11 @@ keywords: browser extension, tab management, window snapshot, session recovery, 
 
 A tiny browser extension that automatically snapshots windows and tabs—preserving entire workflow states. Captures those perfect setups: coding sessions with Stack Overflow army, research rabbit holes, your awesome business dashboards, that collection of manga chapters, or those eye candy tabs saved for design inspiration. All that structure stays intact for whenever it's needed again.
 
-<img src="{{ site.baseurl }}/assets/images/oopstab-screenshot.jpg" alt="OopsTab Screenshot" class="screenshot">
+<img src="https://i.imgur.com/2uqDQSc.jpg" alt="OopsTab Screenshot" class="screenshot">
 
 ## Why OopsTab?
 
-<img src="{{ site.baseurl }}/assets/images/meme.gif" alt="Why OopsTab" class="meme-gif">
+<img src="https://i.imgur.com/r7kDsgX.gif" alt="Why OopsTab" class="meme-gif">
 
 Browsers are powerful with their solid recovery features, but those rescue sessions often dissolve into scattered page history if we don't catch them in time. We've all been there—our carefully arranged tabs just vanish like they never existed.
 
