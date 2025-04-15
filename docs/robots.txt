@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://rockyhong.github.io/OopsTab/sitemap.xml 

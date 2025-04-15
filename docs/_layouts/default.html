@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% if page.title %}{{ page.title }}{% else %}{{ site.title }} - {{ site.tagline }}{% endif %}</title>
+  <meta name="description" content="{% if page.description %}{{ page.description }}{% else %}{{ site.description }}{% endif %}">
+  <meta name="author" content="{{ site.author }}">
+  <meta name="robots" content="index, follow">
+  
+  <!-- Favicon -->
+  <link rel="apple-touch-icon" sizes="180x180" href="{{ '/assets/images/apple-touch-icon.png' | relative_url }}">
+  <link rel="icon" type="image/png" sizes="32x32" href="{{ '/assets/images/favicon-32x32.png' | relative_url }}">
+  <link rel="icon" type="image/png" sizes="16x16" href="{{ '/assets/images/favicon-16x16.png' | relative_url }}">
+  
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="{{ '/assets/css/main.css' | relative_url }}">
+  <link rel="canonical" href="{% if page.canonical_url %}{{ page.canonical_url }}{% else %}{{ site.url }}{{ site.baseurl }}{{ page.url }}{% endif %}">
+  
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="{{ site.url }}{{ site.baseurl }}{{ page.url }}">
+  <meta property="og:title" content="{% if page.title %}{{ page.title }}{% else %}{{ site.title }}{% endif %}">
+  <meta property="og:description" content="{% if page.description %}{{ page.description }}{% else %}{{ site.description }}{% endif %}">
+  <meta property="og:image" content="{{ site.url }}{{ site.baseurl }}{% if page.image %}{{ page.image }}{% else %}/assets/images/oopstab-screenshot.jpg{% endif %}">
+
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:url" content="{{ site.url }}{{ site.baseurl }}{{ page.url }}">
+  <meta name="twitter:title" content="{% if page.title %}{{ page.title }}{% else %}{{ site.title }}{% endif %}">
+  <meta name="twitter:description" content="{% if page.description %}{{ page.description }}{% else %}{{ site.description }}{% endif %}">
+  <meta name="twitter:image" content="{{ site.url }}{{ site.baseurl }}{% if page.image %}{{ page.image }}{% else %}/assets/images/oopstab-screenshot.jpg{% endif %}">
+
+  <!-- Keywords -->
+  {% if page.keywords %}<meta name="keywords" content="{{ page.keywords }}">{% endif %}
+  
+  <!-- JSON-LD structured data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "{{ site.title }}",
+    "description": "{{ site.description }}",
+    "operatingSystem": "Chrome, Firefox, Edge",
+    "applicationCategory": "BrowserExtension",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "author": {
+      "@type": "Person",
+      "name": "{{ site.author }}"
+    }
+  }
+  </script>
+  
+  {% seo %}
+</head>
+<body>
+  <header class="site-header">
+    <div class="container">
+      <a class="site-title" href="{{ '/' | relative_url }}">{{ site.title }}</a>
+      <nav class="site-nav">
+        <a href="{{ '/' | relative_url }}" class="nav-link" {% if page.url == '/' %}aria-current="page"{% endif %}>Home</a>
+        <a href="{{ '/features/' | relative_url }}" class="nav-link" {% if page.url == '/features/' %}aria-current="page"{% endif %}>Features</a>
+        <a href="{{ '/development/' | relative_url }}" class="nav-link" {% if page.url == '/development/' %}aria-current="page"{% endif %}>Development</a>
+        <a href="https://github.com/RockyHong/OopsTab" class="nav-link" rel="noopener" target="_blank">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="site-content">
+    <div class="container">
+      {{ content }}
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-links">
+        <a href="{{ '/' | relative_url }}">Home</a> | 
+        <a href="{{ '/features/' | relative_url }}">Features</a> | 
+        <a href="{{ '/development/' | relative_url }}">Development</a> | 
+        <a href="https://github.com/RockyHong/OopsTab" rel="noopener" target="_blank">GitHub</a>
+      </div>
+      <p>&copy; {{ site.time | date: '%Y' }} Rocky Hong. All rights reserved.</p>
+      <p>Released under the <a href="https://github.com/rockyhong/OopsTab/blob/main/LICENSE">MIT License</a>.</p>
+    </div>
+  </footer>
+  
+  <!-- Simple analytics script, only tracks page views, no personal data -->
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // You could add a privacy-friendly analytics script here
+    });
+  </script>
+</body>
+</html> 

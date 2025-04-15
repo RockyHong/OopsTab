@@ -1,0 +1,79 @@
+title: OopsTab
+tagline: Never Lose Your Tabs Again
+description: OopsTab automatically snapshots browser windows and tabs, preserving your workflows and allowing you to restore entire browsing sessions with a single click.
+baseurl: "/OopsTab"
+url: "https://rockyhong.github.io"
+github_username: rockyhong
+author: Rocky Hong
+
+# Social & SEO
+logo: /assets/images/oopstab-icon.png
+social:
+  name: OopsTab
+  links:
+    - https://github.com/rockyhong/OopsTab
+
+# SEO defaults
+defaults:
+  - scope:
+      path: ""
+    values:
+      image: /assets/images/oopstab-screenshot.jpg
+
+# Build settings
+markdown: kramdown
+theme: minima
+source: docs
+destination: docs/_site
+plugins:
+  - jekyll-feed
+  - jekyll-seo-tag
+  - jekyll-sitemap
+
+# RSS Feed
+feed:
+  path: /feed.xml
+
+# Pagination
+paginate: 5
+paginate_path: "/blog/page:num/"
+
+# Collections
+collections:
+  features:
+    output: true
+    permalink: /features/:path/
+
+# Exclude from processing
+exclude:
+  - node_modules
+  - scripts
+  - src
+  - webpack.config.js
+  - package.json
+  - package-lock.json
+  - yarn.lock
+  - .eslintrc.js
+  - .postcssrc
+  - postcss.config.js
+  - tailwind.config.js
+  - tsconfig.json
+  - .vscode
+  - dist
+  - builds
+  - .gitignore
+  - .gitattributes
+  - ../*
+
+# Cache settings
+keep_files:
+  - .git
+  - .svn
+
+# Compress HTML
+compress_html:
+  clippings: all
+  comments: ["<!-- ", " -->"]
+  endings: all
+  blanklines: false
+  profile: false

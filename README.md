@@ -24,6 +24,12 @@ It's that sneaky problem that trips us up when we least expect it, like that tab
 6. Click "Load unpacked" and select the unzipped folder
 7. OopsTab is now installed and ready to use!
 
+## Documentation
+
+Visit our [documentation site](https://rockyhong.github.io/OopsTab/) for more detailed information about features and usage.
+
+For local development of the documentation site, see the [docs/README.md](docs/README.md) file.
+
 ## Development
 
 ### How to Clone
