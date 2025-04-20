@@ -14,10 +14,14 @@ It's that sneaky problem that trips us up when we least expect it, like that tab
 
 ## Installation
 
+### From Chrome Web Store: 
+- <url>https://chromewebstore.google.com/detail/oopstab-%E2%80%93-never-lose-your/jccoagekghdeacpkpaedlnhkjfldgngn</url>
+
 ### From GitHub Release
 
 1. Go to the [Releases](https://github.com/rockyhong/oopstab/releases) page
-2. Download the latest version (usually a .zip file)
+2. Download the latest version (usually a .zip file with file name `OopsTab.Never.Lose.Your.Tabs.Again-x.y.z.zip
+`)
 3. Unzip the downloaded file
 4. In Chrome, navigate to `chrome://extensions/`
 5. Enable "Developer mode" in the top-right corner
