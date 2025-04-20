@@ -112,6 +112,24 @@ if (level > 0) {
   console.log('Files updated successfully');
 }
 
+// For level 0, use the current version for the tag
+const tagVersion = level === 0 ? currentVersion : newVersion;
+const versionToCheck = tagVersion;
+
+// Check if build exists for this version
+const buildsDir = path.join(projectRoot, 'builds');
+const expectedZipName = `${packageJson.name}-${versionToCheck}.zip`;
+const zipPath = path.join(buildsDir, expectedZipName);
+
+if (!fs.existsSync(buildsDir) || !fs.existsSync(zipPath)) {
+  console.error(`\n❌ ERROR: Build for version ${versionToCheck} not found!`);
+  console.error(`Expected build file: ${zipPath}`);
+  console.error(`\nPlease run 'npm run build' first to create the build, then try again.`);
+  process.exit(1);
+}
+
+console.log(`\n✅ Build verified: ${expectedZipName} exists`);
+
 // Git operations
 try {
   // Check if there are uncommitted changes and we're not in tag-only mode
@@ -127,9 +145,6 @@ try {
       console.log('No changes to commit');
     }
   }
-
-  // For level 0, use the current version for the tag
-  const tagVersion = level === 0 ? currentVersion : newVersion;
 
   // Create and push tag
   console.log(`Creating tag v${tagVersion}...`);
