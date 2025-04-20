@@ -1,9 +1,37 @@
+#!/usr/bin/env node
+
 const fs = require('fs');
 const path = require('path');
 const archiver = require('archiver');
 
+// Find the project root by looking for package.json
+function findProjectRoot(startDir) {
+  let currentDir = startDir;
+  
+  // Limit to 10 levels up to prevent infinite loop
+  for (let i = 0; i < 10; i++) {
+    if (fs.existsSync(path.join(currentDir, 'package.json'))) {
+      return currentDir;
+    }
+    
+    const parentDir = path.dirname(currentDir);
+    if (parentDir === currentDir) {
+      // We've reached the root directory
+      break;
+    }
+    
+    currentDir = parentDir;
+  }
+  
+  throw new Error('Could not find project root (no package.json found)');
+}
+
+// Get project root
+const projectRoot = findProjectRoot(__dirname);
+console.log(`Project root: ${projectRoot}`);
+
 // Ensure the builds directory exists
-const buildsDir = path.join(__dirname, '..', 'builds');
+const buildsDir = path.join(projectRoot, 'builds');
 if (!fs.existsSync(buildsDir)) {
   fs.mkdirSync(buildsDir, { recursive: true });
   console.log(`Created builds directory: ${buildsDir}`);
@@ -12,7 +40,7 @@ if (!fs.existsSync(buildsDir)) {
 }
 
 // Read manifest.json to get name and version
-const manifestPath = path.join(__dirname, '..', 'dist', 'manifest.json');
+const manifestPath = path.join(projectRoot, 'dist', 'manifest.json');
 console.log(`Reading manifest from: ${manifestPath}`);
 const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
 const { name, version } = manifest;
@@ -54,7 +82,7 @@ archive.on('error', function(err) {
 archive.pipe(output);
 
 // Add the dist directory contents to the archive
-const distDir = path.join(__dirname, '..', 'dist');
+const distDir = path.join(projectRoot, 'dist');
 console.log(`Adding contents from: ${distDir}`);
 archive.directory(distDir, false);
 

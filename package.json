@@ -4,7 +4,7 @@
   "description": "Chrome Extension Snapshot Manager",
   "scripts": {
     "dev": "webpack --watch --config webpack.config.js --mode=development",
-    "build": "webpack --config webpack.config.js --mode=production && node scripts/zip-extension.js",
+    "build": "webpack --config webpack.config.js --mode=production && node scripts/tools/zip-extension.js",
     "lint": "eslint . --ext .ts,.tsx"
   },
   "dependencies": {
