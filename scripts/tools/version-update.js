@@ -19,11 +19,40 @@ if (![0, 1, 2, 3].includes(level)) {
   process.exit(1);
 }
 
-// Read manifest.json
-const manifestPath = path.join(__dirname, '..', 'public', 'manifest.json');
-const packagePath = path.join(__dirname, '..', 'package.json');
+// Find the project root by looking for package.json
+function findProjectRoot(startDir) {
+  let currentDir = startDir;
+  
+  // Limit to 10 levels up to prevent infinite loop
+  for (let i = 0; i < 10; i++) {
+    if (fs.existsSync(path.join(currentDir, 'package.json'))) {
+      return currentDir;
+    }
+    
+    const parentDir = path.dirname(currentDir);
+    if (parentDir === currentDir) {
+      // We've reached the root directory
+      break;
+    }
+    
+    currentDir = parentDir;
+  }
+  
+  throw new Error('Could not find project root (no package.json found)');
+}
+
+// Get project root
+const projectRoot = findProjectRoot(__dirname);
+console.log(`Project root: ${projectRoot}`);
+
+// Determine paths
+const packagePath = path.join(projectRoot, 'package.json');
+const manifestPath = path.join(projectRoot, 'public', 'manifest.json');
 
 console.log('Reading manifest and package files...');
+console.log(`- Package: ${packagePath}`);
+console.log(`- Manifest: ${manifestPath}`);
+
 let manifest, packageJson;
 try {
   manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
