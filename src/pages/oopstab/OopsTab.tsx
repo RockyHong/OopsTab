@@ -1583,24 +1583,6 @@ const SnapshotsPanel: React.FC = () => {
                   const isDateVisible = visibleOlderDates.has(date);
                   const visibleCount = visibleOlderItems[date] || 5;
 
-                  // If this date isn't in the visible set yet, add it
-                  useEffect(() => {
-                    if (
-                      olderSnapshots.length > 0 &&
-                      !visibleOlderDates.has(date)
-                    ) {
-                      setVisibleOlderDates((prev) => {
-                        const newSet = new Set(prev);
-                        newSet.add(date);
-                        return newSet;
-                      });
-                      setVisibleOlderItems((prev) => ({
-                        ...prev,
-                        [date]: 5, // Start with 5 items
-                      }));
-                    }
-                  }, [date, olderSnapshots.length]);
-
                   if (isDateVisible) {
                     const visibleItems = olderSnapshots.slice(0, visibleCount);
                     const hasMoreItems =
@@ -1647,6 +1629,29 @@ const SnapshotsPanel: React.FC = () => {
                   }
                 });
               }
+
+              // Effect to add dates to visible sets as needed
+              useEffect(() => {
+                // Process all dates in grouped.older
+                Object.entries(grouped.older).forEach(
+                  ([date, olderSnapshots]) => {
+                    if (
+                      olderSnapshots.length > 0 &&
+                      !visibleOlderDates.has(date)
+                    ) {
+                      setVisibleOlderDates((prev) => {
+                        const newSet = new Set(prev);
+                        newSet.add(date);
+                        return newSet;
+                      });
+                      setVisibleOlderItems((prev) => ({
+                        ...prev,
+                        [date]: 5, // Start with 5 items
+                      }));
+                    }
+                  }
+                );
+              }, [grouped.older, visibleOlderDates]);
 
               // Final load more trigger
               sections.push(
