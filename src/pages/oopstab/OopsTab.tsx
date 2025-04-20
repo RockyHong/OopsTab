@@ -417,6 +417,73 @@ const SnapshotsPanel: React.FC = () => {
     newSnapshotName: "",
   });
 
+  // Store grouped older snapshots for the effect to use
+  const [groupedOlder, setGroupedOlder] = useState<{ [date: string]: any[] }>(
+    {}
+  );
+
+  // Effect to add dates to visible sets as needed - MOVED OUTSIDE of the render function
+  useEffect(() => {
+    // Process all dates in groupedOlder
+    Object.entries(groupedOlder).forEach(([date, olderSnapshots]) => {
+      if (olderSnapshots.length > 0 && !visibleOlderDates.has(date)) {
+        setVisibleOlderDates((prev) => {
+          const newSet = new Set(prev);
+          newSet.add(date);
+          return newSet;
+        });
+        setVisibleOlderItems((prev) => ({
+          ...prev,
+          [date]: 5, // Start with 5 items
+        }));
+      }
+    });
+  }, [groupedOlder, visibleOlderDates]);
+
+  // Effect to update groupedOlder state when grouped.older changes - MOVED FROM INSIDE CONDITIONAL
+  useEffect(() => {
+    // This will run after render when snapshots change
+    if (!isLoading && snapshots) {
+      // Group by date - simplified version to just get the older items
+      const grouped = Object.entries(snapshots)
+        .sort(([, a], [, b]) => {
+          const timeA = a?.timestamp ?? 0;
+          const timeB = b?.timestamp ?? 0;
+          return timeB - timeA;
+        })
+        .reduce((acc: { [date: string]: any[] }, [oopsWindowId, snapshot]) => {
+          if (!snapshot?.isStarred && snapshot?.timestamp) {
+            const date = new Date(snapshot.timestamp);
+            const today = new Date();
+            const yesterday = new Date();
+            yesterday.setDate(yesterday.getDate() - 1);
+
+            // Format for comparison (YYYY-MM-DD)
+            const dateStr = date.toISOString().split("T")[0];
+            const todayStr = today.toISOString().split("T")[0];
+            const yesterdayStr = yesterday.toISOString().split("T")[0];
+
+            // Only process older dates (not today or yesterday)
+            if (dateStr !== todayStr && dateStr !== yesterdayStr) {
+              const shortDate = date.toLocaleDateString(undefined, {
+                month: "short",
+                day: "numeric",
+                year: "numeric",
+              });
+
+              if (!acc[shortDate]) {
+                acc[shortDate] = [];
+              }
+              acc[shortDate].push([oopsWindowId, snapshot]);
+            }
+          }
+          return acc;
+        }, {});
+
+      setGroupedOlder(grouped);
+    }
+  }, [snapshots, isLoading]);
+
   // Inject animation CSS
   useEffect(() => {
     // Create style element for checkbox animation
@@ -1629,29 +1696,6 @@ const SnapshotsPanel: React.FC = () => {
                   }
                 });
               }
-
-              // Effect to add dates to visible sets as needed
-              useEffect(() => {
-                // Process all dates in grouped.older
-                Object.entries(grouped.older).forEach(
-                  ([date, olderSnapshots]) => {
-                    if (
-                      olderSnapshots.length > 0 &&
-                      !visibleOlderDates.has(date)
-                    ) {
-                      setVisibleOlderDates((prev) => {
-                        const newSet = new Set(prev);
-                        newSet.add(date);
-                        return newSet;
-                      });
-                      setVisibleOlderItems((prev) => ({
-                        ...prev,
-                        [date]: 5, // Start with 5 items
-                      }));
-                    }
-                  }
-                );
-              }, [grouped.older, visibleOlderDates]);
 
               // Final load more trigger
               sections.push(
