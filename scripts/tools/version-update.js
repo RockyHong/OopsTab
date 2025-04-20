@@ -110,28 +110,33 @@ if (level > 0) {
   packageJson.version = newVersion;
   fs.writeFileSync(packagePath, JSON.stringify(packageJson, null, 2));
   console.log('Files updated successfully');
+
+  // Run build process after updating version
+  console.log('\n📦 Building extension...');
+  try {
+    execSync('npm run build', { stdio: 'inherit', cwd: projectRoot });
+    console.log('✅ Build successful!');
+  } catch (error) {
+    console.error('\n❌ Build failed! Reverting version changes...');
+    
+    // Revert manifest.json
+    manifest.version = currentVersion;
+    fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
+    
+    // Revert package.json
+    packageJson.version = currentVersion;
+    fs.writeFileSync(packagePath, JSON.stringify(packageJson, null, 2));
+    
+    console.error('Version changes reverted. Please fix the build issues and try again.');
+    process.exit(1);
+  }
 }
-
-// For level 0, use the current version for the tag
-const tagVersion = level === 0 ? currentVersion : newVersion;
-const versionToCheck = tagVersion;
-
-// Check if build exists for this version
-const buildsDir = path.join(projectRoot, 'builds');
-const expectedZipName = `${packageJson.name}-${versionToCheck}.zip`;
-const zipPath = path.join(buildsDir, expectedZipName);
-
-if (!fs.existsSync(buildsDir) || !fs.existsSync(zipPath)) {
-  console.error(`\n❌ ERROR: Build for version ${versionToCheck} not found!`);
-  console.error(`Expected build file: ${zipPath}`);
-  console.error(`\nPlease run 'npm run build' first to create the build, then try again.`);
-  process.exit(1);
-}
-
-console.log(`\n✅ Build verified: ${expectedZipName} exists`);
 
 // Git operations
 try {
+  // For level 0, use the current version for the tag
+  const tagVersion = level === 0 ? currentVersion : newVersion;
+  
   // Check if there are uncommitted changes and we're not in tag-only mode
   if (level > 0) {
     console.log('Checking git status...');
