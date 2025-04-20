@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "OopsTab – Never Lose Your Tabs Again",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Auto-save, restore, and manage full browser windows.",
   "action": {
     "default_icon": {
