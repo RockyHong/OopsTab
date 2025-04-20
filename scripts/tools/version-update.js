@@ -110,33 +110,10 @@ if (level > 0) {
   packageJson.version = newVersion;
   fs.writeFileSync(packagePath, JSON.stringify(packageJson, null, 2));
   console.log('Files updated successfully');
-
-  // Run build process after updating version
-  console.log('\n📦 Building extension...');
-  try {
-    execSync('npm run build', { stdio: 'inherit', cwd: projectRoot });
-    console.log('✅ Build successful!');
-  } catch (error) {
-    console.error('\n❌ Build failed! Reverting version changes...');
-    
-    // Revert manifest.json
-    manifest.version = currentVersion;
-    fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
-    
-    // Revert package.json
-    packageJson.version = currentVersion;
-    fs.writeFileSync(packagePath, JSON.stringify(packageJson, null, 2));
-    
-    console.error('Version changes reverted. Please fix the build issues and try again.');
-    process.exit(1);
-  }
 }
 
 // Git operations
 try {
-  // For level 0, use the current version for the tag
-  const tagVersion = level === 0 ? currentVersion : newVersion;
-  
   // Check if there are uncommitted changes and we're not in tag-only mode
   if (level > 0) {
     console.log('Checking git status...');
@@ -150,6 +127,9 @@ try {
       console.log('No changes to commit');
     }
   }
+
+  // For level 0, use the current version for the tag
+  const tagVersion = level === 0 ? currentVersion : newVersion;
 
   // Create and push tag
   console.log(`Creating tag v${tagVersion}...`);
