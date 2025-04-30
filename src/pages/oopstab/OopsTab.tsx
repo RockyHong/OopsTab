@@ -22,11 +22,13 @@ import {
   ArrowPathIcon,
   ClockIcon as ClockSolidIcon,
   CheckCircleIcon,
+  HomeIcon,
 } from "@heroicons/react/24/solid";
 import {
   ClockIcon,
   RectangleStackIcon,
   StarIcon as StarOutlineIcon,
+  HomeIcon as HomeOutlineIcon,
 } from "@heroicons/react/24/outline";
 import {
   getAllSnapshots,
@@ -99,6 +101,38 @@ const formatDate = (timestamp: number): string => {
     return `${diffInHours} hour${diffInHours > 1 ? "s" : ""} ago`;
 
   return date.toLocaleDateString();
+};
+
+// Homepage Confirmation Dialog component
+const HomepageConfirmDialog: React.FC<{
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  isSettingHomepage: boolean;
+}> = ({ isOpen, onClose, onConfirm, isSettingHomepage }) => {
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={isSettingHomepage ? "Set as Homepage" : "Unset Homepage"}
+    >
+      <div className="space-y-4">
+        <Typography variant="body" className="mb-0">
+          {isSettingHomepage
+            ? "Set OopsTab as your new tab page? This will replace your browser's default new tab."
+            : "Restore your browser's default new tab page?"}
+        </Typography>
+        <div className="flex justify-center space-x-3 pt-4 mt-2">
+          <Button variant="passive" onClick={onClose} className="px-6">
+            Cancel
+          </Button>
+          <Button variant="primary" onClick={onConfirm} className="px-6">
+            {isSettingHomepage ? "Set as Homepage" : "Unset Homepage"}
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  );
 };
 
 const OopsTab: React.FC = () => {
@@ -389,6 +423,11 @@ const SnapshotsPanel: React.FC = () => {
   const [showMergeConfirm, setShowMergeConfirm] = useState(false);
   // Add new state to track animation
   const [checkboxAnimation, setCheckboxAnimation] = useState(false);
+
+  // Homepage states
+  const [isHomepage, setIsHomepage] = useState(false);
+  const [showHomepageConfirm, setShowHomepageConfirm] = useState(false);
+  const [isSettingHomepage, setIsSettingHomepage] = useState(true);
 
   // Lazy loading states
   const [visibleToday, setVisibleToday] = useState<number>(10); // Initial number of today's snapshots to show
@@ -1321,6 +1360,44 @@ const SnapshotsPanel: React.FC = () => {
     );
   };
 
+  // Check if OopsTab is set as homepage on load
+  useEffect(() => {
+    const checkHomepageStatus = async () => {
+      try {
+        const result = await browser.storage.local.get(["oopsTabIsHomepage"]);
+        setIsHomepage(!!result.oopsTabIsHomepage);
+      } catch (err) {
+        console.error("Error checking homepage status:", err);
+      }
+    };
+
+    checkHomepageStatus();
+  }, []);
+
+  // Handle homepage action
+  const handleHomepageAction = () => {
+    setIsSettingHomepage(!isHomepage);
+    setShowHomepageConfirm(true);
+  };
+
+  // Confirm homepage action
+  const confirmHomepageAction = async () => {
+    try {
+      // Toggle the homepage status in storage
+      await browser.storage.local.set({
+        oopsTabIsHomepage: !isHomepage,
+      });
+
+      // Update local state
+      setIsHomepage(!isHomepage);
+
+      // Close the dialog
+      setShowHomepageConfirm(false);
+    } catch (err) {
+      console.error("Error setting homepage status:", err);
+    }
+  };
+
   return (
     <div className="page-content-wrapper">
       {/* Title row - sticky with background */}
@@ -1360,6 +1437,19 @@ const SnapshotsPanel: React.FC = () => {
             </>
           ) : (
             <>
+              <Button
+                variant={isHomepage ? "primary" : "passive"}
+                onClick={handleHomepageAction}
+                title={isHomepage ? "Unset as homepage" : "Set as homepage"}
+                className="flex items-center"
+              >
+                {isHomepage ? (
+                  <HomeIcon className="h-4 w-4 mr-1" />
+                ) : (
+                  <HomeOutlineIcon className="h-4 w-4 mr-1" />
+                )}
+                {isHomepage ? "Unset Homepage" : "Set as Homepage"}
+              </Button>
               <Button
                 variant="passive"
                 onClick={toggleSelectMode}
@@ -1743,6 +1833,14 @@ const SnapshotsPanel: React.FC = () => {
         totalTabs={mergeResult.totalTabs}
         duplicatesSkipped={mergeResult.duplicatesSkipped}
         newSnapshotName={mergeResult.newSnapshotName}
+      />
+
+      {/* Homepage Confirmation Dialog */}
+      <HomepageConfirmDialog
+        isOpen={showHomepageConfirm}
+        onClose={() => setShowHomepageConfirm(false)}
+        onConfirm={confirmHomepageAction}
+        isSettingHomepage={isSettingHomepage}
       />
     </div>
   );

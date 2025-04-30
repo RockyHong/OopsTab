@@ -40,6 +40,128 @@ initializeWindowTracking()
 // Cleanup deleted window tracking on startup
 cleanupDeletedWindowTracking();
 
+// Add listener for new tab page override
+const setupNewTabListener = async () => {
+  try {
+    // Check if OopsTab is set as homepage
+    const result = await browser.storage.local.get(["oopsTabIsHomepage"]);
+    const isHomepage = !!result.oopsTabIsHomepage;
+
+    if (isHomepage) {
+      // Register the listener if set as homepage
+      addNewTabListener();
+
+      // Also check any existing new tab pages that might be open
+      checkExistingTabs();
+    }
+  } catch (err) {
+    console.error("Error setting up new tab listener:", err);
+  }
+};
+
+// Function to check existing tabs when the extension starts
+const checkExistingTabs = async () => {
+  try {
+    // Get all tabs in all windows
+    const allTabs = await browser.tabs.query({});
+
+    // Check each tab and redirect if it's a new tab page
+    for (const tab of allTabs) {
+      if (
+        tab.url === "chrome://newtab/" ||
+        tab.url === "about:newtab" ||
+        tab.pendingUrl === "chrome://newtab/" ||
+        tab.pendingUrl === "about:newtab"
+      ) {
+        if (tab.id) {
+          browser.tabs.update(tab.id, { url: "options.html" });
+        }
+      }
+    }
+  } catch (err) {
+    console.error("Error checking existing tabs:", err);
+  }
+};
+
+// Function to add new tab listener
+const addNewTabListener = () => {
+  browser.tabs.onCreated.addListener(handleNewTab);
+
+  // Also listen for new windows being created
+  browser.windows.onCreated.addListener(handleNewWindow);
+};
+
+// Function to remove new tab listener
+const removeNewTabListener = () => {
+  browser.tabs.onCreated.removeListener(handleNewTab);
+
+  // Remove window listener as well
+  browser.windows.onCreated.removeListener(handleNewWindow);
+};
+
+// Handle new tab creation for homepage override
+const handleNewTab = (tab: any) => {
+  // Check if this is a new tab page
+  if (
+    tab.url === "chrome://newtab/" ||
+    tab.url === "about:newtab" ||
+    tab.pendingUrl === "chrome://newtab/" ||
+    tab.pendingUrl === "about:newtab"
+  ) {
+    // Update the tab to show our options page instead
+    if (tab.id) {
+      browser.tabs.update(tab.id, { url: "options.html" });
+    }
+  }
+};
+
+// Handle new window creation for homepage override
+const handleNewWindow = async (window: any) => {
+  try {
+    // Check if OopsTab is set as homepage
+    const result = await browser.storage.local.get(["oopsTabIsHomepage"]);
+    const isHomepage = !!result.oopsTabIsHomepage;
+
+    if (!isHomepage || !window.id) return;
+
+    // Short delay to ensure the window's first tab is fully loaded
+    setTimeout(async () => {
+      // Get all tabs in the newly created window
+      const tabs = await browser.tabs.query({ windowId: window.id });
+
+      // If there's only one tab and it's a new tab page, redirect it
+      if (tabs.length === 1) {
+        const tab = tabs[0];
+        if (
+          tab.url === "chrome://newtab/" ||
+          tab.url === "about:newtab" ||
+          tab.pendingUrl === "chrome://newtab/" ||
+          tab.pendingUrl === "about:newtab"
+        ) {
+          if (tab.id) {
+            browser.tabs.update(tab.id, { url: "options.html" });
+          }
+        }
+      }
+    }, 100);
+  } catch (err) {
+    console.error("Error handling new window:", err);
+  }
+};
+
+// Listen for changes to the homepage setting
+browser.storage.onChanged.addListener((changes, area) => {
+  if (area === "local" && changes.oopsTabIsHomepage) {
+    if (changes.oopsTabIsHomepage.newValue) {
+      // Add listener when set as homepage
+      addNewTabListener();
+    } else {
+      // Remove listener when unset
+      removeNewTabListener();
+    }
+  }
+});
+
 // Debounced snapshot creation to avoid too many snapshots
 const debouncedSnapshotCreation = debounce((windowId: number | undefined) => {
   if (typeof windowId !== "number") return;
@@ -271,3 +393,6 @@ browser.windows.onRemoved.addListener((windowId) => {
     })();
   }, 200); // 200ms delay to ensure cache is ready
 });
+
+// Call setup on startup
+setupNewTabListener();
