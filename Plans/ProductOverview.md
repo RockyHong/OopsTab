@@ -20,12 +20,22 @@ This is not just tab recovery. We’re preserving the shape of thought behind ho
 
 ⸻
 
-🧱 Core Experience 1. Automatic Tracking
-Each browser window is assigned a unique internal ID. As the user browses, OopsTab monitors window changes and captures snapshots at meaningful moments — quietly, in the background. 2. Session Timeline (Optional)
-Snapshots are grouped by window and time, forming a browsable timeline of past activity. This includes both automatically captured sessions and sessions manually saved by the user. 3. Effortless Restoration
-Users can restore any saved session into a new window. If the session is already open, OopsTab intelligently focuses that window instead of creating duplicates. 4. Intentional Saving
-Users can “promote” an auto-saved session into a saved one — bookmarking it for future reference, protection, or long-term use. 5. Clean, Friendly UI
-The interface is simple and inviting — a clean split between auto-captured sessions and user-saved ones, with buttons to restore, save, or delete each.
+🧱 Core Experience
+
+1. Automatic Tracking
+   Each browser window is assigned a unique internal ID. As the user browses, OopsTab monitors window changes and captures snapshots at meaningful moments — quietly, in the background.
+
+2. Session Timeline (Optional)
+   Snapshots are grouped by window and time, forming a browsable timeline of past activity. This includes both automatically captured sessions and sessions manually saved by the user.
+
+3. Effortless Restoration
+   Users can restore any saved session into a new window. If the session is already open, OopsTab intelligently focuses that window instead of creating duplicates.
+
+4. Intentional Saving
+   Users can “promote” an auto-saved session into a saved one — bookmarking it for future reference, protection, or long-term use.
+
+5. Clean, Friendly UI
+   The interface is simple and inviting — a clean split between auto-captured sessions and user-saved ones, with buttons to restore, save, or delete each.
 
 ⸻
 

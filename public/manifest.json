@@ -23,6 +23,9 @@
     "page": "options.html",
     "open_in_tab": true
   },
+  "chrome_url_overrides": {
+    "newtab": "newtab.html"
+  },
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'"
   },

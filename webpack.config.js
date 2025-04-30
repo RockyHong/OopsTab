@@ -51,6 +51,7 @@ module.exports = (env, argv) => {
       options: './src/options/index.tsx',
       background: './src/background/index.ts',
       content: './src/content/index.ts',
+      newtab: './src/pages/newtab/index.tsx',
     },
     output: {
       path: path.resolve(__dirname, 'dist'),
@@ -84,6 +85,11 @@ module.exports = (env, argv) => {
         template: './public/options.html',
         filename: 'options.html',
         chunks: ['options'],
+      }),
+      new HtmlWebpackPlugin({
+        template: './public/newtab.html',
+        filename: 'newtab.html',
+        chunks: ['newtab'],
       }),
       new CopyWebpackPlugin({
         patterns: copyPatterns,
