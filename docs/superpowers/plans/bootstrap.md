@@ -56,33 +56,20 @@ Replace stub sections with full content derived from techstack and overview anal
 - [x] **Update CLAUDE.md**
 - [x] **Commit**: `docs: finalize CLAUDE.md with full analysis`
 
-### Task 4: Skill / MCP / Hook Resolution
+### Task 4: Skill / MCP / Hook Resolution ✅
 
-Auto-curate Claude Code tooling matched to detected stack. Harness-internal — user sees one batch, replies. No manual search, no plugin install gate.
+Pinned 4 plugins via project `.claude/settings.json` so cloud Claude Code reproduces the toolset:
 
-**Depends on:** Task 1 (needs detected stack)
+- `superpowers@claude-plugins-official` — full pipeline (brainstorming, TDD, code-reviewer, executing-plans, systematic-debugging, etc.)
+- `fullstack-dev-skills@fullstack-dev-skills` — react-expert, typescript-pro, secure-code-guardian, debugging-wizard
+- `frontend-design@claude-plugins-official` — for new UI components
+- `caveman@caveman` — communication style
 
-**Process — automated:**
+CLAUDE.md "Preferred Skills" section names which skills to reach for first. Marketplace caveat: `fullstack-dev-skills` source not declared in extraKnownMarketplaces (was auto-registered on this machine); cloud / fresh installs may need manual source spec.
 
-1. **Take detected stack from Task 1** — TS 5 + React 18 + Tailwind 3 + Webpack 5 + Chrome MV3 extension, single package, solo dev.
-2. **Curate recommendations** across:
-   - Anthropic plugin marketplace (`claude-plugins-official`)
-   - awesome-skills.com / skills.sh
-   - tonsofskills.com / `ccpi` CLI
-   - mcpmarket.com (MCP servers)
-   - Fast-path: if `claude-code-setup` plugin installed, invoke `/setup` and merge its picks
-3. **Filter to stack-matched only** — Chrome extension dev, React/TS, Tailwind, Webpack, MV3 service worker debugging. Drop generic / spray suggestions.
-4. **Present batch to user with rationale per pick:**
-   ```
-   Recommendations for OopsTab (TS+React+Webpack+MV3):
-     [SKILL]    name    — matched signal, one-line value
-     [MCP]      name    — matched signal, one-line value
-     [HOOK]     name    — matched signal, one-line value
-     [SUBAGENT] name    — matched signal, one-line value
-   Accept all / reject specific / discuss thoughts?
-   ```
-5. **Apply approved** via `claude plugin install <slug>@<market>` or settings edit.
-6. **Commit if anything added.**
+MCPs: `context7` already configured user-side — kept device-wide, not project-pinned. No additions.
+
+Hooks: none added — existing user-level SessionStart / UserPromptSubmit hooks cover communication and quality checks.
 
 ### Task 5: Seed Feature Specs
 

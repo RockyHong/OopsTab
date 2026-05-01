@@ -145,6 +145,27 @@ This project is operated by a single developer across multiple Claude Code sessi
 - **Session isolation** — each Claude session commits only its own changes
 - **No merge conflicts expected** — if one occurs, stop and ask the user
 
+## Preferred Skills
+
+Project pins these plugins via `.claude/settings.json` (`enabledPlugins`) so cloud Claude Code and fresh machines reproduce the toolset. Within those plugins, reach for these skills first:
+
+| Skill | When |
+|---|---|
+| `superpowers:brainstorming` | Required by Medium / Large routes before any code |
+| `superpowers:writing-plans` / `executing-plans` | Large-route work spanning multiple sessions |
+| `superpowers:test-driven-development` | Adding tests (PoC/MVP checklists show test gaps) |
+| `superpowers:code-reviewer` | Diffs >50 lines or any storage-schema change |
+| `superpowers:systematic-debugging` | MV3 service-worker / restore / sync-storage bugs |
+| `fullstack-dev-skills:react-expert` | React 18 component work (hooks, memo, perf) |
+| `fullstack-dev-skills:typescript-pro` | Type-system tightening, generics, narrowing |
+| `fullstack-dev-skills:secure-code-guardian` | CSP, web-accessible-resources, storage-handling changes |
+| `fullstack-dev-skills:debugging-wizard` | Cold-start listener loss, async-listener races |
+| `frontend-design:frontend-design` | New components in `src/components/ui/` matching `Plans/StyleDesignOverview.md` |
+
+Pinned plugins: `superpowers`, `fullstack-dev-skills`, `frontend-design`, `caveman`. Whole-plugin pin keeps each pipeline intact (skills cross-reference each other inside a plugin).
+
+> **Marketplace note:** `fullstack-dev-skills@fullstack-dev-skills` source is not declared in `extraKnownMarketplaces`. Cloud sessions / fresh machines may need to add its source manually if Claude can't auto-resolve.
+
 ## Coding Standards
 
 Project-specific patterns. New code matches existing conventions; deviating needs a reason.
