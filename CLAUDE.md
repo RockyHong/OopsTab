@@ -145,6 +145,59 @@ This project is operated by a single developer across multiple Claude Code sessi
 - **Session isolation** — each Claude session commits only its own changes
 - **No merge conflicts expected** — if one occurs, stop and ask the user
 
+## Coding Standards
+
+Project-specific patterns. New code matches existing conventions; deviating needs a reason.
+
+### Components
+
+```tsx
+// Function components with React.FC, default export, variant lookup objects.
+const Button: React.FC<ButtonProps> = ({ variant = "primary", size = "md", ... }) => {
+  const variantClasses = { primary: "...", passive: "...", danger: "..." };
+  return <button className={cn("rounded-md font-medium", variantClasses[variant], ...)} {...props} />;
+};
+export default Button;
+```
+
+- Function components (`React.FC<Props>`); no class components.
+- Default export for the primary symbol; named exports for helpers.
+- Props extend the relevant DOM `*HTMLAttributes` plus `BaseComponentProps` (`className`, `children`).
+- Variants are object lookups, not switch statements.
+- `cn(...)` from `src/utils/classnames.ts` for conditional classes.
+
+### Type Centralization (per `Plans/SoCGuide.md`)
+
+| Centralize in `src/types/` | Inline |
+|---|---|
+| Shared across UI ↔ background | Used in a single component or function |
+| Persisted to `chrome.storage.*` | Not exported anywhere |
+| Domain models (snapshot, session, window, tab) | Component-specific prop shapes |
+| Message contract between UI and background | One-shot helper return types |
+
+Files: `snapshot.ts`, `storage.ts`, `browser.ts`, `ui.ts`, `message.ts` — re-exported via `src/types/index.ts`.
+
+### Tailwind
+
+Centralize / inline rule:
+
+- **Centralize** — repeating variants, design-system components (`Button`, `Card`), token-based class sets. Live in `src/components/ui/` or `tailwind.config.js`.
+- **Inline** — layout structure unique to a JSX block (`flex flex-col gap-4 p-4`).
+
+Always use semantic theme tokens (`bg-primary`, `text-text-primary`, `bg-surface`) — never raw hex. Custom semantic typography sizes (`text-heading-1..6`, `text-body-lg/sm`, `text-caption`) bundle font-weight + line-height; prefer them over manual stacking. Style references: `Plans/StyleDesignOverview.md` (visual identity, color palette, typography).
+
+### Async / Error Handling
+
+- `async/await` throughout. Use `.then().catch()` only at top-level fire-and-forget call sites in the service worker (where `await` would block listener registration).
+- Errors logged via `console.error("<contextual prefix>:", err)` and swallowed when the listener can recover.
+- Top-level promise chains always have a `.catch` — unhandled rejections in MV3 service workers are noisy and cost credibility in store reviews.
+
+### Imports
+
+- Relative imports dominate (`../utils`, `../../types`). The `@` alias is registered in webpack but rarely used.
+- Re-export through barrels (`src/types/index.ts`, `src/utils/index.ts`, `src/components/ui/index.ts`).
+- Default browser API import: `import browser from "../utils/browserAPI"`.
+
 ## Project Structure
 
 ```
@@ -170,16 +223,24 @@ OopsTab/
 
 ## Tech Stack
 
-- **Runtime**: Browser (Chrome/Edge MV3 service worker + DOM)
-- **Language**: TypeScript 5 (strict)
-- **UI**: React 18 + Tailwind CSS 3 + Heroicons
-- **Routing**: react-router-dom 7
-- **Build**: Webpack 5 + ts-loader + PostCSS + autoprefixer
-- **Browser API**: webextension-polyfill (cross-browser shim)
-- **Lint**: ESLint 9 + @typescript-eslint
-- **Distribution**: zip via `scripts/tools/zip-extension.js`, GH Actions release workflow
+TS 5 (strict) + React 18 + Tailwind 3 + Webpack 5 + webextension-polyfill. Multi-entry MV3 extension (background, content, options, oopstab). Lint: ESLint 9. Distribution: webpack production → `scripts/tools/zip-extension.js` → `builds/`. GH Actions release on `v*` tag.
 
-> Full techstack analysis pending — see `docs/superpowers/plans/bootstrap.md` task list.
+→ Full analysis with stack table, dependency philosophy, architecture rules, coding patterns, and known discrepancies in [`docs/techstack.md`](docs/techstack.md).
+
+## MV3 Architecture Rules
+
+These are non-negotiable — violating them silently breaks the extension.
+
+1. **Don't import `chrome.*` directly** — go through `src/utils/browserAPI.ts` so polyfill + feature-detect stay consistent.
+2. **Listeners register at top level of `src/background/index.ts`** — never inside conditional async wrappers, or events get lost when the service worker wakes from cold.
+3. **No DOM APIs in `background/`** — service worker context only. No `window`, no `document`, no `localStorage`. Use `chrome.storage.local`.
+4. **No persistent module-scope state in the worker** — it can be killed at any time. Persist anything you need to remember.
+5. **No inline `<script>` and no `eval`** — CSP is `script-src 'self'; object-src 'self'`. That's why `middleware-tab.js` is a separate file.
+6. **`tabGroups` calls must guard on `supportsTabGroups`** — Firefox lacks the API.
+7. **Domain types live in `src/types/`** — don't re-declare `WindowSnapshot`, `TabData`, `OopsConfig`, etc. in component files.
+8. **Theme tokens, not hex values** — new colors go into `tailwind.config.js` first, then components reference `bg-primary`, `text-text-primary`, etc.
+9. **`cn()` for conditional classes** (from `src/utils/classnames.ts`) — `clsx` is not installed.
+10. **Add new persisted keys to `STORAGE_KEYS`** in `src/types/storage.ts` — string literals scattered across files cause silent typos.
 
 ## Commands
 
@@ -198,12 +259,12 @@ npm run lint     # eslint .ts/.tsx
 
 ## Planning
 
-- `docs/overview.md` — Product context, data flow, module index (once written)
-- `docs/techstack.md` — Tech choices and architecture rules (once written)
-- `docs/specs/` — **Persistent feature specs** — source of truth per feature ([index](docs/specs/index.md))
-- `docs/building.md` — Build/distribution instructions
-- `docs/superpowers/specs/` — Design specs from brainstorming (temporal — deleted after merge)
-- `docs/superpowers/plans/` — Implementation plans (temporal — deleted after merge)
-- `Plans/` — Historical planning docs (DevelopmentPlan, MVPChecklist, PoCChecklist, SoCGuide, StyleDesignOverview, TechStackOverview) — preserved for reference; new work uses `docs/`
+- [`docs/overview.md`](docs/overview.md) — Product context, user flows, data flow diagram, module index, key boundaries.
+- [`docs/techstack.md`](docs/techstack.md) — Stack table, dependency philosophy, architecture rules, coding patterns, build & distribution, known discrepancies.
+- [`docs/specs/`](docs/specs/index.md) — **Persistent feature specs** — source of truth per feature.
+- `docs/building.md` — Build/distribution instructions *(seeded by bootstrap Task 6)*.
+- `docs/superpowers/specs/` — Design specs from brainstorming (temporal — deleted after merge).
+- `docs/superpowers/plans/` — Implementation plans (temporal — deleted after merge).
+- `Plans/` — Historical planning docs (`DevelopmentPlan.md`, `MVPChecklist.md`, `PoCChecklist.md`, `SoCGuide.md` *(coding rules still in force)*, `StyleDesignOverview.md` *(visual identity reference)*, `TechStackOverview.md`). Preserved for reference; new work uses `docs/`.
 
 > **Two kinds of specs:** `docs/specs/` = permanent source of truth (updated as features evolve). `docs/superpowers/specs/` = temporal work orders (deleted after merge).

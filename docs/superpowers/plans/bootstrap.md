@@ -40,21 +40,21 @@ Distill the product context and write `docs/overview.md`.
 - [x] **Write `docs/overview.md`**
 - [x] **Commit**: `docs: add product overview`
 
-### Task 3: Enhance CLAUDE.md
+### Task 3: Enhance CLAUDE.md ✅
 
 Replace stub sections with full content derived from techstack and overview analysis.
 
 **Depends on:** Task 1 and Task 2 (needs their output)
 
-- [ ] **Write Coding Standards section** — derived from `Plans/SoCGuide.md` + actual code patterns (type centralization, Tailwind centralize-vs-inline rules, import style, message passing pattern)
-- [ ] **Update Tech Stack section** — remove "pending" marker, point to `docs/techstack.md`
-- [ ] **Update Planning section** — confirm references to `docs/overview.md`, `docs/techstack.md`, `docs/specs/index.md` are accurate
-- [ ] **Verify doc sync wording** — ensure doc sync is a named pipeline step in every route (between user review and commit), with temporal cleanup paragraph
-- [ ] **Add MV3-specific notes** — service worker lifetime, CSP constraints, storage quota, no-eval/no-inline-script rules
-- [ ] **Add Style/Design ref** — point to `Plans/StyleDesignOverview.md` (or migrate to `docs/specs/style.md`)
-- [ ] **Present changes to user**
-- [ ] **Update CLAUDE.md**
-- [ ] **Commit**: `docs: finalize CLAUDE.md with full analysis`
+- [x] **Write Coding Standards section** — derived from `Plans/SoCGuide.md` + actual code patterns (type centralization, Tailwind centralize-vs-inline rules, import style, message passing pattern)
+- [x] **Update Tech Stack section** — remove "pending" marker, point to `docs/techstack.md`
+- [x] **Update Planning section** — confirm references to `docs/overview.md`, `docs/techstack.md`, `docs/specs/index.md` are accurate
+- [x] **Verify doc sync wording** — ensure doc sync is a named pipeline step in every route (between user review and commit), with temporal cleanup paragraph
+- [x] **Add MV3-specific notes** — service worker lifetime, CSP constraints, storage quota, no-eval/no-inline-script rules
+- [x] **Add Style/Design ref** — point to `Plans/StyleDesignOverview.md` (or migrate to `docs/specs/style.md`)
+- [x] **Present changes to user** *(post-write — auto mode)*
+- [x] **Update CLAUDE.md**
+- [x] **Commit**: `docs: finalize CLAUDE.md with full analysis`
 
 ### Task 4: Skill / MCP / Hook Resolution
 
