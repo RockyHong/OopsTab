@@ -83,19 +83,18 @@ Wrote 5 specs (consolidated from suggested 7 — `manual-save-rename` and `setti
 - [x] **Update `docs/specs/index.md`**
 - [x] **Commit**: `docs: seed persistent feature specs`
 
-### Task 6: Build Doc
+### Task 6: Build Doc ✅
 
-Write `docs/building.md` covering build/distribution.
+Wrote [`docs/building.md`](../../building.md) — local dev workflow, dist/builds/ layout, version-update levels, GH release pipeline, manual Web Store upload checklist, pre-release cleanup, file map.
 
-- [ ] **Document local build** — `npm run dev` (watch), `npm run build` (production + zip)
-- [ ] **Document zip flow** — `scripts/tools/zip-extension.js`, output naming, dist/ layout
-- [ ] **Document version bump** — `scripts/tools/version-update.js`, manifest.json + package.json sync
-- [ ] **Document GH release workflow** — `.github/workflows/release.yml` trigger, artifacts
-- [ ] **Document Chrome Web Store upload steps** — manual checklist for store submission
-- [ ] **Document loading unpacked dev build** — `chrome://extensions` instructions
-- [ ] **Present to user**
-- [ ] **Write `docs/building.md`**
-- [ ] **Commit**: `docs: add build and distribution guide`
+- [x] **Document local build** — `npm run dev` (watch), `npm run build` (production + zip)
+- [x] **Document zip flow** — `scripts/tools/zip-extension.js`, output naming, dist/ layout
+- [x] **Document version bump** — `scripts/tools/version-update.js`, manifest.json + package.json sync
+- [x] **Document GH release workflow** — `.github/workflows/release.yml` trigger, artifacts
+- [x] **Document Chrome Web Store upload steps** — manual checklist for store submission
+- [x] **Document loading unpacked dev build** — `chrome://extensions` instructions
+- [x] **Write `docs/building.md`**
+- [x] **Commit**: `docs: add build and distribution guide`
 
 ### Task 7: Cleanup
 

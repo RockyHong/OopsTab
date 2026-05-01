@@ -283,7 +283,7 @@ npm run lint     # eslint .ts/.tsx
 - [`docs/overview.md`](docs/overview.md) — Product context, user flows, data flow diagram, module index, key boundaries.
 - [`docs/techstack.md`](docs/techstack.md) — Stack table, dependency philosophy, architecture rules, coding patterns, build & distribution, known discrepancies.
 - [`docs/specs/`](docs/specs/index.md) — **Persistent feature specs** — source of truth per feature.
-- `docs/building.md` — Build/distribution instructions *(seeded by bootstrap Task 6)*.
+- [`docs/building.md`](docs/building.md) — Build/distribution instructions.
 - `docs/superpowers/specs/` — Design specs from brainstorming (temporal — deleted after merge).
 - `docs/superpowers/plans/` — Implementation plans (temporal — deleted after merge).
 - `Plans/` — Historical planning docs (`DevelopmentPlan.md`, `MVPChecklist.md`, `PoCChecklist.md`, `SoCGuide.md` *(coding rules still in force)*, `StyleDesignOverview.md` *(visual identity reference)*, `TechStackOverview.md`). Preserved for reference; new work uses `docs/`.
