@@ -71,27 +71,17 @@ MCPs: `context7` already configured user-side — kept device-wide, not project-
 
 Hooks: none added — existing user-level SessionStart / UserPromptSubmit hooks cover communication and quality checks.
 
-### Task 5: Seed Feature Specs
+### Task 5: Seed Feature Specs ✅
 
-Write initial persistent specs for OopsTab's existing features.
+Wrote 5 specs (consolidated from suggested 7 — `manual-save-rename` and `settings` folded into `management-ui` since the surface is unified):
 
-**Depends on:** Task 2 (needs product overview to identify features)
-
-Suggested seed specs (derived from `Plans/DevelopmentPlan.md` + current code):
-
-- `window-tracking.md` — `oopsWindowId` UUID, mapping persistence, rebuild on startup
-- `snapshot-creation.md` — event triggers, debouncing, capture format
-- `snapshot-storage.md` — storage schema, quota policy, auto-prune (5-per-window limit), TTL
-- `restore-flow.md` — focus-vs-create logic, tab/group/pinned restoration, middleware-tab role
-- `manual-save-rename.md` — promote auto → saved, default naming `TopTabTitle - Timestamp`, validation
-- `settings.md` — debounce interval, max snapshots, TTL, persistence
-- `ui-shell.md` — management page layout, two-list view, options page
-
-- [ ] **Confirm spec list with user** (some may be merged or skipped)
-- [ ] **For each confirmed spec, write a spec** — product-level: intent, user flow, cross-module interactions, design decisions. Code-light — no API tables or implementation details.
-- [ ] **Update `docs/specs/index.md`** — add each spec to the table with a one-liner describing what it covers
-- [ ] **Present to user for review**
-- [ ] **Commit**: `docs: seed persistent feature specs`
+- [x] [`window-tracking.md`](../../specs/window-tracking.md) — UUID assignment, idMap, reopen detection
+- [x] [`snapshot-lifecycle.md`](../../specs/snapshot-lifecycle.md) — triggers, debounce, merge, final-on-close, cache
+- [x] [`snapshot-storage.md`](../../specs/snapshot-storage.md) — local + sync chunking, schema, conflict resolution, export/import, cleanup
+- [x] [`restore-flow.md`](../../specs/restore-flow.md) — focus-or-recreate, middleware indirection, group restoration, identity re-association
+- [x] [`management-ui.md`](../../specs/management-ui.md) — options.html shell, list view, settings, homepage override, debug panel
+- [x] **Update `docs/specs/index.md`**
+- [x] **Commit**: `docs: seed persistent feature specs`
 
 ### Task 6: Build Doc
 
