@@ -25,20 +25,20 @@ Deep-dive into the project's technical stack and write `docs/techstack.md`.
 - [x] **Write `docs/techstack.md`**
 - [x] **Commit**: `docs: add techstack analysis`
 
-### Task 2: Product Overview
+### Task 2: Product Overview ✅
 
 Distill the product context and write `docs/overview.md`.
 
 **Input:** `README.md`, `Plans/DevelopmentPlan.md`, `Plans/PoCChecklist.md`, `Plans/MVPChecklist.md`, code structure, git history.
 
-- [ ] **Read README and existing planning docs fully** — especially `Plans/DevelopmentPlan.md` which is the de-facto product spec
-- [ ] **Trace data flow** — entry point: background service worker listens to `chrome.tabs.*` / `chrome.windows.*` / `chrome.tabGroups.*` events → debounced snapshot creation → `chrome.storage.local`. UI (oopstab page + options) reads storage and sends restore/save messages to background.
-- [ ] **Build module index** — scan `src/` (background, content, components/ui, options, pages/oopstab, types, utils, middleware-tab), one-line description each
-- [ ] **Identify key boundaries** — chrome.* API surface, message types between UI and background, storage schema, middleware-tab redirect flow
-- [ ] **Draft overview.md** — problem (browser session loss), solution (auto-snapshot per logical window), user (end-user), user flow (passive auto-save → manual save/rename → restore), data flow, module index, key boundaries
-- [ ] **Present to user for review**
-- [ ] **Write `docs/overview.md`**
-- [ ] **Commit**: `docs: add product overview`
+- [x] **Read README and existing planning docs fully** — especially `Plans/DevelopmentPlan.md` which is the de-facto product spec
+- [x] **Trace data flow** — entry point: background service worker listens to `chrome.tabs.*` / `chrome.windows.*` / `chrome.tabGroups.*` events → debounced snapshot creation → `chrome.storage.local`. UI (oopstab page + options) reads storage and sends restore/save messages to background.
+- [x] **Build module index** — scan `src/` (background, content, components/ui, options, pages/oopstab, types, utils, middleware-tab), one-line description each
+- [x] **Identify key boundaries** — chrome.* API surface, message types between UI and background, storage schema, middleware-tab redirect flow
+- [x] **Draft overview.md** — problem (browser session loss), solution (auto-snapshot per logical window), user (end-user), user flow (passive auto-save → manual save/rename → restore), data flow, module index, key boundaries
+- [x] **Present to user for review** *(post-write — auto mode)*
+- [x] **Write `docs/overview.md`**
+- [x] **Commit**: `docs: add product overview`
 
 ### Task 3: Enhance CLAUDE.md
 
