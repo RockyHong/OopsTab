@@ -10,20 +10,20 @@ A rich set of historical planning docs already exists in `Plans/` — Tasks 1, 2
 
 ---
 
-### Task 1: Techstack Analysis
+### Task 1: Techstack Analysis ✅
 
 Deep-dive into the project's technical stack and write `docs/techstack.md`.
 
 **Input:** `Plans/TechStackOverview.md`, `Plans/SoCGuide.md`, `Plans/StyleDesignOverview.md`, `package.json`, `tsconfig.json`, `webpack.config.js`, `.eslintrc.js`, `postcss.config.js`, sample 3-5 source files (background entry, one component, one util, one type module).
 
-- [ ] **Read manifest files fully** — `package.json`, `tsconfig.json`, `webpack.config.js`, `.eslintrc.js`, `postcss.config.js`, `tailwind.config.js`
-- [ ] **Read existing planning docs** — `Plans/TechStackOverview.md`, `Plans/SoCGuide.md`, `Plans/StyleDesignOverview.md` (these already capture much of the architecture intent)
-- [ ] **Sample source files** — read main entry points (background service worker, oopstab page, options page), one typical component, one util, one type module, one test file if present. Note: import style, error handling, naming conventions, class vs function, type usage
-- [ ] **Identify architecture patterns** — multi-entry webpack layout, message passing UI ↔ background, storage schema, type centralization rules
-- [ ] **Draft techstack.md** — stack table, dependency philosophy, architecture rules (MV3 service worker constraints, CSP, polyfill usage), coding patterns, build & distribution (webpack + zip-extension + GH release workflow), rejected alternatives (MUI was considered, headless preferred per `Plans/TechStackOverview.md`)
-- [ ] **Present to user for review**
-- [ ] **Write `docs/techstack.md`**
-- [ ] **Commit**: `docs: add techstack analysis`
+- [x] **Read manifest files fully** — `package.json`, `tsconfig.json`, `webpack.config.js`, `.eslintrc.js`, `postcss.config.js`, `tailwind.config.js`
+- [x] **Read existing planning docs** — `Plans/TechStackOverview.md`, `Plans/SoCGuide.md`, `Plans/StyleDesignOverview.md` (these already capture much of the architecture intent)
+- [x] **Sample source files** — read main entry points (background service worker, oopstab page, options page), one typical component, one util, one type module, one test file if present. Note: import style, error handling, naming conventions, class vs function, type usage
+- [x] **Identify architecture patterns** — multi-entry webpack layout, message passing UI ↔ background, storage schema, type centralization rules
+- [x] **Draft techstack.md** — stack table, dependency philosophy, architecture rules (MV3 service worker constraints, CSP, polyfill usage), coding patterns, build & distribution (webpack + zip-extension + GH release workflow), rejected alternatives (MUI was considered, headless preferred per `Plans/TechStackOverview.md`)
+- [x] **Present to user for review** *(post-write — auto mode)*
+- [x] **Write `docs/techstack.md`**
+- [x] **Commit**: `docs: add techstack analysis`
 
 ### Task 2: Product Overview
 
