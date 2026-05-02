@@ -3,7 +3,10 @@
     "superpowers@claude-plugins-official": true,
     "fullstack-dev-skills@fullstack-dev-skills": true,
     "frontend-design@claude-plugins-official": true,
-    "caveman@caveman": true
+    "caveman@caveman": true,
+    "commit-commands@claude-plugins-official": false,
+    "claude-code-setup@claude-plugins-official": false,
+    "ui-ux-pro-max@ui-ux-pro-max-skill": false
   },
   "extraKnownMarketplaces": {
     "caveman": {
@@ -12,5 +15,28 @@
         "repo": "JuliusBrussee/caveman"
       }
     }
+  },
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "D:/Git/ChromeExtensions/OopsTab/.claude/hooks/context-quality-check.sh"
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "matcher": "manual|auto",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "D:/Git/ChromeExtensions/OopsTab/.claude/hooks/context-quality-reset.sh"
+          }
+        ]
+      }
+    ]
   }
 }

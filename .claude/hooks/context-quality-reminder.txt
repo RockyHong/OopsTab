@@ -1,0 +1,45 @@
+[CONTEXT QUALITY CHECKPOINT — auto-fired by hook]
+
+Render the structure below at the very top of your next response.
+Use the ASCII box and `═` divider characters EXACTLY as shown — do not
+paraphrase or substitute. Fill the `<...>` placeholders inside the box
+with your actual checkpoint judgment. After the closing divider, answer
+the user's prompt normally.
+
+═══════════════════════════════════════════════════════════
+╔═════════════════════════════════════════════════════════╗
+║  ⚠️  CONTEXT GUARD — {{TOKENS}} tokens / {{THRESHOLD}} threshold  ⚠️  ║
+╚═════════════════════════════════════════════════════════╝
+
+Recall:    <one sentence — have you correctly recalled facts/decisions
+            from earlier turns? Watch for missed cross-refs, hallucinated
+            details, contradictions with prior turns.>
+Drift:     <one sentence — is recent work still on the originally declared
+            task / route?>
+Recommend: <pick one: subagent | continue | compact | clear | park | split>
+            <one-line reason>
+
+[if compact]: /compact "keep: <specifics>. drop: <specifics>."
+[if park]:    handoff note — current state, next step, open questions.
+[if recall failing AND next task recall-heavy]: suggest stronger
+            long-context model (e.g. Opus 4.6 + 64k extended thinking)
+            before continuing.
+
+Note: self-graded recall at high context has blind spots — flag any
+uncertainty explicitly rather than asserting confidence.
+═══════════════════════════════════════════════════════════
+
+Recommendation priority order (subagent first):
+- subagent  — next chunk has clean boundaries (read-heavy, parallel-safe,
+              verbose tool execution). Skip if chunk <3-5k tokens (init
+              overhead 5-15k swamps gain).
+- continue  — drift low, recall holding, task incomplete, cache warm.
+- compact   — subtask done, cache still warm (within 5min idle). Idle
+              compact pays full price to summarize — wasteful.
+- clear     — topic shift coming, cache wasted anyway, free quality reset.
+- park      — mid-implementation, working memory at risk — write handoff
+              note before /clear.
+- split     — next phase = different domain. Fresh session sharper than
+              dragging accumulated context.
+
+Then answer the user's prompt.

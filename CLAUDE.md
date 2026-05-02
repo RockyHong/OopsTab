@@ -166,6 +166,22 @@ Pinned plugins: `superpowers`, `fullstack-dev-skills`, `frontend-design`, `cavem
 
 > **Marketplace note:** `fullstack-dev-skills@fullstack-dev-skills` source is not declared in `extraKnownMarketplaces`. Cloud sessions / fresh machines may need to add its source manually if Claude can't auto-resolve.
 
+### Pipeline-served artifacts
+
+Resolved by `/resolve-claude-config` from `claude-config-manager` and committed to the repo so cloud Claude Code reproduces them without device setup.
+
+| Type | Name | Purpose |
+|---|---|---|
+| skill | `todo` | Persistent task tracking across sessions |
+| skill | `journey-simulation` | Walk through user flows before committing UI changes |
+| skill | `check-docs-consistency` | Verify docs match code before commit (doc-sync support) |
+| skill | `frontend-soc-scan` | Flag domain logic leaking into frontend (SoC enforcement) |
+| skill | `discuss` | Structured discussion / brainstorming variant |
+| skill | `commit` | Conventional-commit generator (replaces `commit-commands` plugin) |
+| skill | `merge` | Absorb feature branches with merge/rebase recommendation |
+| mcp | `context7` | Library/framework docs lookup (wired in `.mcp.json`) |
+| hook | `context-quality` | Auto-fires context checkpoint reminder past 200k-token threshold; resets on `/compact` |
+
 ## Coding Standards
 
 Project-specific patterns. New code matches existing conventions; deviating needs a reason.
