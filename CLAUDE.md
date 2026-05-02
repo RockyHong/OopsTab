@@ -292,7 +292,6 @@ npm run lint     # eslint .ts/.tsx
 - **Only commit current session's changes** — if unrelated uncommitted changes exist from prior work, leave them alone
 - **Atomic commits** — one logical change per commit
 - **Conventional commits** — `feat:`, `fix:`, `refactor:`, `docs:`, `test:`, `chore:`
-- **Note:** `package-lock.json` is intentionally deleted on the current branch (commit `1d3f061 fix package problem`) — leave it alone
 
 ## Planning
 
